@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Move Transfer Inbound System | Windows 98 View</title>
+    <style>
+        /* CSS phong cách Windows 98 */
+        :root { 
+            --win-bg: #c0c0c0; 
+            --win-border-light: #ffffff; 
+            --win-border-dark: #808080; 
+            --win-border-darker: #000000; 
+            --win-title: #000080; 
+            --win-text: #000000;
+            --accent: #0000ff; /* Chuyển accent sang xanh lam cổ điển */
+            --done: #008000; /* Xanh lá cổ điển */
+            --warning: #ff0000; /* Đỏ cổ điển */
+        }
+        
+        @font-face {
+            font-family: 'W95FA';
+            src: url('https://fonts.cdnfonts.com/s/13010/w95fa.woff') format('woff');
+        }
+
+        * { font-family: Tahoma, 'Trebuchet MS', sans-serif; box-sizing: border-box; margin: 0; padding: 0; font-size: 11px; color: var(--win-text); }
+        
+        body { 
+            background: #008080; /* Màu nền Desktop cổ điển */
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            padding: 12px; 
+            gap: 12px;
+        }
+
+        @keyframes shake-red {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); background: #ffcccc; }
+            40%, 80% { transform: translateX(4px); background: #ffcccc; }
+        }
+        .input-error { animation: shake-red 0.4s ease-in-out; border: 2px solid red !important; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        .left-panel { 
+            width: 32%; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            flex-shrink: 0;
+        }
+        .right-panel { 
+            flex: 1; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            min-width: 0; 
+        }
+        
+        /* Cửa sổ chuẩn Windows */
+        .glass { 
+            background: var(--win-bg); 
+            border-top: 2px solid var(--win-border-light);
+            border-left: 2px solid var(--win-border-light);
+            border-right: 2px solid var(--win-border-darker);
+            border-bottom: 2px solid var(--win-border-darker);
+            box-shadow: inset 1px 1px #dfdfdf, inset -1px -1px #808080;
+            padding: 3px; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panel-cluster {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.panel-top {
+    flex: 0 0 auto;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.panel-middle {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+.panel-bottom {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    border-top: 1px groove #fff;
+    padding-top: 6px;
+}
+        /* Thanh tiêu đề cửa sổ */
+        .header { 
+            background: linear-gradient(90deg, #000080, #1084d0);
+            padding: 3px 5px; 
+            margin: 0 0 10px 0;
+            display: flex; justify-content: space-between; align-items: center; 
+            position: relative;
+        }
+        .header h2 { color: #ffffff; font-weight: bold; font-size: 13px; letter-spacing: 1px; margin: 0; }
+        
+        .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 0 5px; }
+        label { font-size: 11px; color: #000; margin-bottom: 2px; display: block; }
+        
+        /* Ô nhập liệu */
+        input, select { 
+            width: 100%; height: 22px; 
+            background: #ffffff; 
+            border-top: 1px solid var(--win-border-dark);
+            border-left: 1px solid var(--win-border-dark);
+            border-bottom: 1px solid var(--win-border-light);
+            border-right: 1px solid var(--win-border-light);
+            box-shadow: inset 1px 1px #000000;
+            padding: 0 4px; color: #000; outline: none; transition: 0s; 
+        }
+        
+        .btn-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin: 10px 5px; }
+        
+        /* Nút bấm 3D */
+        button, .help-btn { 
+            background: var(--win-bg); 
+            color: #000; 
+            border-top: 1px solid var(--win-border-light);
+            border-left: 1px solid var(--win-border-light);
+            border-bottom: 1px solid var(--win-border-darker);
+            border-right: 1px solid var(--win-border-darker);
+            box-shadow: inset 1px 1px #dfdfdf, inset -1px -1px #808080;
+            height: 25px; 
+            cursor: pointer; 
+            font-size: 11px;
+            font-weight: normal;
+        }
+        button:active, .help-btn:active { 
+            border-top: 1px solid var(--win-border-darker);
+            border-left: 1px solid var(--win-border-darker);
+            border-bottom: 1px solid var(--win-border-light);
+            border-right: 1px solid var(--win-border-light);
+            box-shadow: inset 1px 1px #808080;
+            padding: 1px 0 0 1px; /* Tạo hiệu ứng lún */
+        }
+        button:disabled { color: #808080; text-shadow: 1px 1px #fff; }
+        
+        /* Nút tùy chỉnh */
+        .btn-search { font-weight: bold; }
+        .btn-done { font-weight: bold; color: var(--win-title); }
+        
+        #res { display: none; flex-direction: row; gap: 12px; flex-grow: 1; overflow: hidden; margin-top: 10px; padding: 0 5px; }
+        
+        /* Khung hiển thị chìm */
+        .mtb-column { 
+            flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 4px; 
+            background: #ffffff;
+            border-top: 1px solid var(--win-border-dark);
+            border-left: 1px solid var(--win-border-dark);
+            border-bottom: 1px solid var(--win-border-light);
+            border-right: 1px solid var(--win-border-light);
+            box-shadow: inset 1px 1px #000000;
+        }
+        .info-column { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+        .mtb-item { 
+            padding: 4px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px dotted #808080;
+        }
+        .mtb-item:hover { background: #000080; color: #ffffff; }
+        .mtb-item:hover .mtb-id-label { color: #ffffff; }
+        
+        .mtb-id-label { font-weight: bold; color: #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80px; }
+        .mtb-input { width: 50px; height: 20px; text-align: center; font-weight: bold; }
+        
+        .banner { 
+            background: #ffffff; 
+            border-top: 1px solid var(--win-border-dark);
+            border-left: 1px solid var(--win-border-dark);
+            border-bottom: 1px solid var(--win-border-light);
+            border-right: 1px solid var(--win-border-light);
+            padding: 5px; text-align: center; margin: 0 5px 10px 5px; 
+        }
+        .editable-qty { font-size: 24px; font-weight: bold; text-align: center; border: none; box-shadow: none; height: auto; color: var(--win-title); }
+        
+        .info-box { background: var(--win-bg); padding: 4px; border: 1px inset #fff; margin-bottom: 4px; }
+        .info-label { font-weight: bold; border-bottom: 1px solid #808080; margin-bottom: 2px; }
+        .info-value { font-weight: bold; color: var(--win-title); }
+
+        #status-area { display: flex; align-items: center; justify-content: space-between; padding: 5px; }        #status { color: #000; }
+        
+        .refresh-circle { 
+            width: 20px; height: 20px; 
+            background: var(--win-bg); border: 1px outset #fff;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; 
+        }
+        .refresh-circle:active { border: 1px inset #fff; }
+
+        .data-section { 
+            flex: 1; display: flex; flex-direction: column; 
+            background: var(--win-bg); 
+            border-top: 2px solid var(--win-border-light);
+            border-left: 2px solid var(--win-border-light);
+            border-right: 2px solid var(--win-border-darker);
+            border-bottom: 2px solid var(--win-border-darker);
+            box-shadow: inset 1px 1px #dfdfdf, inset -1px -1px #808080;
+            padding: 3px;
+        }
+        .section-header { 
+            background: linear-gradient(90deg, #808080, #c0c0c0); 
+            padding: 3px 5px; color: #ffffff; font-weight: bold; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+        }
+        .section-header span { color: #ffffff; }
+        
+        .scroll-container { flex-grow: 1; overflow-y: auto; background: #ffffff; border: 1px inset #fff; position: relative; }
+        
+        /* Bảng dữ liệu chuẩn 98 */
+        .excel-table { width: 100%; border-collapse: collapse; }
+        .excel-table th { 
+            position: sticky; top: 0; background: var(--win-bg); color: #000; padding: 4px; text-align: left; z-index: 1; 
+            border-top: 1px solid var(--win-border-light);
+            border-left: 1px solid var(--win-border-light);
+            border-bottom: 1px solid var(--win-border-darker);
+            border-right: 1px solid var(--win-border-darker);
+            font-weight: normal;
+        }
+        .excel-table td { padding: 4px; border-bottom: 1px solid #c0c0c0; border-right: 1px solid #c0c0c0; color: #000; }
+        .qty-cell { font-weight: bold; text-align: center; color: var(--win-title); }
+        
+        .wait-qty-input { width: 40px; height: 20px; text-align: center; font-weight: bold; padding: 0;}
+        .btn-del { color: var(--warning); cursor: pointer; font-weight: bold; text-align: center; text-decoration: underline; }
+        .empty-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #808080; }
+        
+        .info-horizontal { display: flex; flex-wrap: wrap; gap: 4px; }
+        .info-tag { background: #dfdfdf; border: 1px solid #808080; padding: 1px 4px; color: #000; }
+        
+        /* Thanh cuộn Windows */
+        ::-webkit-scrollbar { width: 16px; height: 16px; }
+        ::-webkit-scrollbar-track { background: #dfdfdf; border-left: 1px solid #fff; }
+        ::-webkit-scrollbar-thumb { 
+            background: var(--win-bg); 
+            border-top: 1px solid var(--win-border-light);
+            border-left: 1px solid var(--win-border-light);
+            border-bottom: 1px solid var(--win-border-darker);
+            border-right: 1px solid var(--win-border-darker);
+        }
+        
+        .count-badge { background: #ffffff; padding: 1px 4px; border: 1px inset #fff; color: #000; font-weight: normal;}
+        .section-header .count-badge { color: #000 !important; }
+
+        .header, .filter-grid, .btn-row, #status-area, #bannerQty, label { flex-shrink: 0 !important; }
+        #skuInput { flex-shrink: 0 !important; }
+
+        .ship-row { display: flex; gap: 8px; margin-bottom: 10px; height: 22px; flex-shrink: 0; }
+        .ship-input-wrap { flex: 1; }
+        .ship-list-wrap { 
+            flex: 1; background: #ffffff; border: 1px inset #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;
+        }
+        
+        .ship-dropdown {
+            display: none; position: absolute; top: 24px; left: 0; width: 100%;
+            background: var(--win-bg); border: 2px outset #fff; z-index: 1000; padding: 4px; max-height: 200px; overflow-y: auto;
+        }
+        .ship-list-wrap:hover .ship-dropdown { display: block; }
+        
+        .ship-tag { background: #ffffff; border: 1px inset #fff; padding: 2px 4px; margin: 2px; display: inline-flex; align-items: center; gap: 4px; }
+        .ship-tag span { cursor: pointer; color: red; font-weight: bold; }
+        
+        .packing-toggle { display: flex; height: 22px; }
+        
+        /* Radio button style cho Toggle */
+        .pack-item {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            background: var(--win-bg); border: 1px outset #fff; cursor: pointer; color: #000;
+        }
+        .pack-item.active {
+            background: #ffffff; border: 1px inset #fff; font-weight: bold;
+        }
+
+        .status-dot {
+            width: 12px; height: 12px; background: #808080; border: 1px inset #fff; cursor: help; margin-left: 5px;
+        }
+        
+        .help-btn { position: absolute; top: 3px; right: 4px; width: 16px; height: 14px; font-weight: bold; padding: 0; display: flex; align-items: center; justify-content: center; }
+
+        /* Dialog Box */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 400px; background: var(--win-bg);
+            border-top: 2px solid var(--win-border-light); border-left: 2px solid var(--win-border-light);
+            border-bottom: 2px solid var(--win-border-darker); border-right: 2px solid var(--win-border-darker);
+            padding: 2px; box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            background: linear-gradient(90deg, #000080, #1084d0); color: white; padding: 2px 4px; font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+        }
+        .modal-title { color: white; }
+        .modal-close { 
+            background: var(--win-bg); color: #000; border: 1px outset #fff; width: 16px; height: 14px; 
+            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px;
+        }
+        .modal-close:active { border: 1px inset #fff; padding-top: 1px; padding-left: 1px; }
+        .modal-body { padding: 10px; background: var(--win-bg); }
+        .guide-item { margin-bottom: 8px; }
+        
+        #boxLockedBadge {
+            background: #ffffff; border: 1px inset #fff; height: 22px; padding: 0 4px; 
+            align-items: center; font-weight: bold; cursor: pointer; gap: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="left-panel">
+    <div class="glass">
+
+    <!-- CỤM 2/3 TRÊN: Bộ lọc + Số lượng -->
+    <div class="panel-cluster">
+
+    <!-- KHUNG TRÊN: Bộ lọc -->
+    <div class="panel-top">
+        <div class="header">
+            <h2>MOVE TRANSFER INBOUND SYSTEM</h2>
+            <div class="help-btn" onclick="showGuide()" title="Help">?</div>
+        </div>
+
+        <div class="filter-grid">
+            <div>
+                <label>Inbound Date:</label>
+                <input type="date" id="dateFrom">
+            </div>
+            <div>
+                <label>Packing Type:</label>
+                <div class="packing-toggle">
+                    <div id="btnBasket" class="pack-item active" onclick="setPacking('Basket')">Basket</div>
+                    <div id="btnPallet" class="pack-item" onclick="setPacking('Pallet')">Pallet</div>
+                </div>
+                <select id="packingSelect" style="display:none;"><option value="Basket">Basket</option><option value="Pallet">Pallet</option></select>
+            </div>
+
+            <div style="grid-column: span 2;">
+                <label>Ship Order Batch:</label>
+                <div class="ship-row" style="margin-bottom: 0;">
+                    <div class="ship-input-wrap">
+                    <input type="text" id="shipOrderInput" placeholder="Input Ship order & Enter..." autocomplete="off">                    
+                    </div>
+                    <div class="ship-list-wrap">
+                        <span id="shipCountLabel">0 SELECTED</span>
+                        <div class="ship-dropdown" id="shipDropdownContent">
+                            <div style="color: #808080; text-align: center;">No orders</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label>Warehouse:</label>
+                <input type="text" id="selWh" list="whList" autocomplete="off">
+                <datalist id="whList"></datalist>
+            </div>
+            <div>
+                <label>Staff Name:</label>
+                <input type="text" id="staffInput" autocomplete="off">
+            </div>
+            <div style="grid-column: span 2;">
+                <div style="display: flex; gap: 8px;">
+                    <div style="flex: 0 0 49%;">
+                                <label>Box ID (Input after queuing):</label>
+                                <div class="ship-row" style="margin-bottom: 0;">
+                                    <div class="ship-input-wrap">
+                                    <input type="text" id="boxInput" placeholder="Input Box & Enter..."autocomplete="off">                                    
+                                    </div>
+                                    <div class="ship-list-wrap">
+                                        <span id="boxCountLabel">0 SELECTED</span>
+                                        <div class="ship-dropdown" id="boxDropdownContent">
+                                            <div style="color: #808080; text-align: center;">No boxes</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                    <div style="flex: 1;">
+                        <label>Current Batch:</label>
+                        <div id="batchDisplay" style="height:22px; background:#fff; border:1px inset #fff; display:flex; align-items:center; padding:0 4px; font-weight:bold;">
+                            ---
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="grid-column: span 2;">
+                        <div style="display: flex; gap: 8px;">
+                            <div style="flex: 1;">
+                                <label>Input SKU / UPC:</label>
+<input type="text" id="skuInput" onkeydown="if(event.key==='Enter' || event.keyCode===13) { event.preventDefault(); tim(); }" autocomplete="off">                            </div>
+                            <div style="flex: 1;">
+                                <label>Note:</label>
+                                <input type="text" id="noteInput" autocomplete="off">
+                            </div>
+                        </div>
+                        <div style="margin-top: 5px;">
+                            <label>Status:</label>
+                            <div class="packing-toggle">
+                                <div id="btnGood" class="pack-item active" onclick="setStatus('Good')">Good</div>
+                                <div id="btnBroken" class="pack-item" onclick="setStatus('Hư hỏng')">Hư hỏng</div>
+                                <div id="btnWrong" class="pack-item" onclick="setStatus('Sai hàng')">Sai hàng</div>
+                                <div id="btnMissing" class="pack-item" onclick="setStatus('Thiếu hàng')">Thiếu hàng</div>
+                            </div>
+                            <input type="hidden" id="statusSelect" value="Good">
+                        </div>
+                    </div>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn-search" onclick="tim()">Query</button>
+            <button class="btn-done" onclick="saveAllQueue()" id="btnSave">Done</button>
+        </div>
+    </div>
+
+    <!-- KHUNG 1/3 GIỮA: Số lượng & Kết quả MTB -->
+    <div class="panel-middle">
+        <div class="banner" id="bannerQty" style="display:none;">
+            <div>BALANCE QUANTITY</div>
+<input type="number" id="qtyDisplay" class="editable-qty" onkeydown="if(event.key==='Enter' || event.keyCode===13) { event.preventDefault(); validateAndAdd(); }" autocomplete="off">            <div>(Press Enter)</div>
+        </div>
+
+        <div id="res">
+            <div class="mtb-column" id="mtbList"></div>
+            <div class="info-column" style="flex-shrink: 0; width: 120px;">
+                <div class="info-box"><div class="info-label">ZONE</div><div id="zoneShow" class="info-value">---</div></div>
+                <div class="info-box"><div class="info-label">SHIP ORDER</div><div id="shipShow" class="info-value">---</div></div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+    <!-- KẾT THÚC CỤM 2/3 TRÊN -->
+
+    <!-- KHUNG DƯỚI: Status (Cố định) -->
+<div class="panel-bottom">
+    <div id="status-area">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <button class="refresh-circle" id="refreshBtn" onclick="fetchData()" title="Refresh">R</button>
+                <div id="status">Ready</div>
+                <div class="status-dot" id="statusDot" title="System Status"></div>
+            </div>
+            <button class="btn-next-batch" id="btnNextBatch" onclick="handleNextBatch()">Next Batch >></button>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<div class="right-panel">
+    <div class="data-section">
+        <div class="section-header">
+            <span>Inventory Details</span>
+            <span id="locCount" class="count-badge">0 LOCs</span>
+        </div>
+        <div class="scroll-container">
+            <table class="excel-table" id="onHandTable" style="display:none">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">SKU ID</th>
+                        <th style="width: 45%;">SKU Name</th>
+                        <th style="width: 12%; text-align: center;">Qty</th>
+                        <th style="width: 18%;">Location</th>
+                    </tr>
+                </thead>
+                <tbody id="onHandBody"></tbody>
+            </table>
+            <div id="emptyMsg" class="empty-state">No Data Found.</div>
+        </div>
+    </div>
+
+    <div class="data-section">
+        <div class="section-header">
+            <span>Export Queue</span>
+            <div style="display: flex; gap: 5px;">
+                <span id="queueShipCount" class="count-badge">0 Batches</span>
+                <span id="queueCount" class="count-badge">0 SKU</span>
+            </div>
+        </div>
+        <div class="scroll-container">
+            <table class="excel-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">SKU ID</th>
+                        <th style="width: 50%;">Information</th>
+                        <th style="width: 15%; text-align: center;">Qty</th>
+                        <th style="width: 10%; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="queueBody"></tbody>
+            </table>
+            <div id="emptyQueue" class="empty-state">Queue is empty.</div>
+        </div>
+    </div>
+</div>
+<script>
+    function updateWhDropdownByShip() {
+        const whInput = document.getElementById('selWh');
+        const whList = document.getElementById('whList');
+        
+        if (selectedShipOrders.length === 0) {
+            whInput.value = "";
+            whList.innerHTML = "";
+            return;
+        }
+
+        const matchedWhs = [...new Set(rawData
+            .filter(i => {
+                const shipInData = i.ship ? i.ship.toString().trim().toUpperCase() : "";
+                return selectedShipOrders.some(s => s.trim().toUpperCase() === shipInData);
+            })
+            .map(i => i.wh)
+        )].filter(w => w);
+
+        if (matchedWhs.length > 0) {
+            whInput.value = matchedWhs.join(", ");
+        } else {
+            whInput.value = "";
+        }
+
+        whList.innerHTML = matchedWhs.map(w => `<option value="${w}">`).join('');
+    }
+    let selectedShipOrders = [];
+    let selectedBoxes = [];
+
+    function addBox() {
+        const input = document.getElementById('boxInput');
+        const val = input.value.trim().toUpperCase(); 
+        if (val && !selectedBoxes.includes(val)) {
+            selectedBoxes.push(val);
+            input.value = ""; 
+            updateBoxListUI();
+        }
+    }
+
+    function removeBox(box) {
+        selectedBoxes = selectedBoxes.filter(b => b !== box);
+        updateBoxListUI();
+    }
+
+    function updateBoxListUI() {
+        const dropdown = document.getElementById('boxDropdownContent');
+        const label = document.getElementById('boxCountLabel');
+        label.innerText = selectedBoxes.length + " SELECTED";
+        
+        if (selectedBoxes.length === 0) {
+            dropdown.innerHTML = '<div style="color: #808080; text-align: center;">No boxes</div>';
+        } else {
+            dropdown.innerHTML = selectedBoxes.map(b => `
+                <div class="ship-tag">${b}<span onclick="removeBox('${b}')">X</span></div>
+            `).join('');
+        }
+    }
+
+    function addShipOrder() {
+        const input = document.getElementById('shipOrderInput');
+        const val = input.value.trim().toUpperCase(); 
+        
+        if (val && !selectedShipOrders.includes(val)) {
+            selectedShipOrders.push(val);
+            input.value = ""; 
+            updateShipListUI();
+            updateWhDropdownByShip();
+            if(lastSku) tim(); 
+        }
+    }
+
+    function removeShipOrder(order) {
+        selectedShipOrders = selectedShipOrders.filter(o => o !== order);
+        updateShipListUI();
+        if(lastSku) tim();
+        updateWhDropdownByShip();
+    }
+
+    function updateShipListUI() {
+        const dropdown = document.getElementById('shipDropdownContent');
+        const label = document.getElementById('shipCountLabel');
+        label.innerText = selectedShipOrders.length + " SELECTED";
+        updateStatusTooltip(); 
+        
+        if (selectedShipOrders.length === 0) {
+            dropdown.innerHTML = '<div style="color: #808080; text-align: center;">No orders</div>';
+        } else {
+            dropdown.innerHTML = selectedShipOrders.map(o => `
+                <div class="ship-tag">${o}<span onclick="removeShipOrder('${o}')">X</span></div>
+            `).join('');
+        }
+    }
+    
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGDa5Jzjavczc8VEXe1IMRYw5VUHFgGrZDGNpnDcGi1PY0pji6qo89ikXxT5kl508F1Q/exec';
+    const id = '1tZSfBsoETfC1awAuh9K3ke3cVL197l5GcagcUmy08AA';
+    
+    const rawUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,B,C,D,E,F,G&sheet=Data%20raw%20MTI`;
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20D,E,C,F&sheet=Export%20Data%20MTIS`;
+    const onHandUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20C,D,H,O,R&sheet=On%20hand`;
+    const upcUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,G,H&sheet=UPC`;
+    const sizeUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,C,F,G&sheet=Size`;
+    
+    let rawData = [], exportData = [], onHandData = [], upcData = [], sizeData = [], zoneData = [], lastSku = "";
+    let queueList = [];
+    let currentMaxQty = 0;
+    let lastMtb = ""; 
+    let activeMtbBalances = {}; 
+    let lockedBoxId = "";
+    
+    function generateBatchCode() {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const letters = chars.charAt(Math.floor(Math.random() * chars.length)) + 
+                        chars.charAt(Math.floor(Math.random() * chars.length));
+        const numbers = Math.floor(100 + Math.random() * 900); 
+        return letters + numbers;
+    }
+
+    let currentBatchCode = generateBatchCode();
+
+    function lockBoxId() {
+        const val = document.getElementById('boxInput').value.trim();
+        if (!val) { triggerInputError('boxInput'); return; }
+        
+        lockedBoxId = val;
+        
+        document.getElementById('boxInput').style.display = "none";
+        document.getElementById('boxLockedLabel').innerText = val;
+        document.getElementById('boxLockedBadge').style.display = "flex";
+        document.getElementById('batchDisplay').innerText = currentBatchCode; 
+        document.getElementById('skuInput').focus();
+    }
+
+    function unlockBoxId() {
+        lockedBoxId = "";
+        document.getElementById('boxInput').value = ""; 
+        document.getElementById('boxInput').style.display = "";
+        document.getElementById('boxLockedBadge').style.display = "none";
+        document.getElementById('boxInput').focus();
+    }
+
+    window.onload = () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dateFrom').value = today;
+    document.getElementById('batchDisplay').innerText = currentBatchCode; 
+    fetchData();
+
+    // Gắn Enter cho Ship Order Batch
+    document.getElementById('shipOrderInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addShipOrder();
+        }
+    });
+
+    // Gắn Enter cho Box ID
+    document.getElementById('boxInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBox();
+        }
+    });
+};
+
+    function parseDate(dateStr) {
+        if (!dateStr) return 0;
+        if (typeof dateStr === 'string' && dateStr.includes('Date')) {
+            const vals = dateStr.match(/\d+/g);
+            return new Date(vals[0], vals[1], vals[2]).getTime();
+        }
+        const parts = dateStr.split(/[/ -]/);
+        if (parts[0].length === 4) return new Date(parts[0], parts[1]-1, parts[2]).getTime();
+        return new Date(parts[2], parts[1]-1, parts[0]).getTime();
+    }
+
+    async function fetchData() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    document.getElementById('status').innerText = "Loading Data...";
+    updateStatusTooltip(); 
+    try {
+        const [rRaw, rExp, rHand, rUpc, rSize] = await Promise.all([
+            fetch(rawUrl + '&t=' + Date.now()), 
+            fetch(exportUrl + '&t=' + Date.now()), 
+            fetch(onHandUrl + '&t=' + Date.now()), 
+            fetch(upcUrl + '&t=' + Date.now()),
+            fetch(sizeUrl + '&t=' + Date.now())
+        ]);
+
+        const tRaw = await rRaw.text(), tExp = await rExp.text(), tHand = await rHand.text(), tUpc = await rUpc.text(), tSize = await rSize.text();
+
+        rawData = JSON.parse(tRaw.substring(47, tRaw.length - 2)).table.rows.map(row => ({
+            ngay: row.c[0]?.f || row.c[0]?.v || '', mtb: row.c[1]?.v || '',
+            sku: row.c[2]?.v?.toString().trim() || '', qty: parseFloat(row.c[3]?.v) || 0,
+            ship: row.c[4]?.v || '---', box: row.c[5]?.v || '---', wh: row.c[6]?.v || ''
+        }));
+        
+        exportData = JSON.parse(tExp.substring(47, tExp.length - 2)).table.rows.map(row => ({
+            sku: row.c[0]?.v?.toString().trim().toUpperCase() || '', 
+            qty: parseFloat(row.c[1]?.v) || 0,
+            mtb: row.c[2]?.v?.toString().trim().toUpperCase() || '',
+            ship: row.c[3]?.v?.toString().trim().toUpperCase() || '' 
+        }));
+        
+        const ALLOWED_ZONES = ['A', 'AT', 'B', 'BT', 'C'];
+        onHandData = JSON.parse(tHand.substring(47, tHand.length - 2)).table.rows
+            .map(row => ({
+                skuId: row.c[0]?.v?.toString().trim() || '', 
+                name: row.c[1]?.v || '',
+                qty: row.c[2]?.v || 0, 
+                loc: row.c[3]?.v || '---',
+                zone: row.c[4]?.v?.toString().trim().toUpperCase() || ''
+            }))
+            .filter(item => ALLOWED_ZONES.includes(item.zone));
+        upcData = JSON.parse(tUpc.substring(47, tUpc.length - 2)).table.rows.map(row => ({
+            sku: row.c[0]?.v?.toString().trim() || '',
+            upc3: row.c[1]?.v?.toString().trim() || '',
+            upc4: row.c[2]?.v?.toString().trim() || ''
+        }));
+        sizeData = [];
+        zoneData = [];
+        JSON.parse(tSize.substring(47, tSize.length - 2)).table.rows.forEach(row => {
+            const skuId = row.c[0]?.v?.toString().trim() || '';
+            const skuType = row.c[1]?.v?.toString().trim() || '';
+            const zoneType = row.c[2]?.v?.toString().trim() || '';
+            const zoneValue = row.c[3]?.v?.toString().trim() || '';
+            if (skuId && skuType) {
+                sizeData.push({ sku: skuId.toUpperCase(), type: skuType });
+            }
+            if (zoneType && zoneValue) {
+                zoneData.push({ type: zoneType, zone: zoneValue });
+            }
+        });
+        const whs = [...new Set(rawData.map(i => i.wh))].filter(w => w);
+        document.getElementById('whList').innerHTML = whs.map(w => `<option value="${w}">`).join('');
+        const whSelect = document.getElementById('selWh');
+        const currentWh = whSelect.value;
+        whSelect.innerHTML = '<option value="">All warehouse</option>';
+        whs.forEach(w => whSelect.innerHTML += `<option value="${w}">${w}</option>`);
+        whSelect.value = currentWh;
+        
+        document.getElementById('status').innerText = "Data Ready";
+        if(lastSku) tim(); 
+    } catch(e) { 
+        document.getElementById('status').innerText = "Connection Error: " + e.message; 
+    }
+}
+
+    async function handleNextBatch() {
+        if (!confirm("Confirm move to DATA sheet and clear export list?")) return;
+        
+        const btn = document.getElementById('btnNextBatch');
+        const status = document.getElementById('status');
+        
+        btn.disabled = true;
+        status.innerText = "Processing Batch...";
+
+        try {
+            const response = await fetch(SCRIPT_URL + "?action=nextBatch", { method: 'POST' });
+            const result = await response.text();
+            
+            if (result === "Success") {
+                status.innerText = "Transferred & Cleared";
+                fetchData(); 
+            } else {
+                status.innerText = "Error: " + result;
+            }
+        } catch (e) {
+            status.innerText = "Connection Error";
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function triggerInputError(elOrId) {
+        const el = (typeof elOrId === 'string') ? document.getElementById(elOrId) : elOrId;
+        if(!el) return;
+        el.classList.remove('input-error');
+        void el.offsetWidth; 
+        el.classList.add('input-error');
+        el.focus();
+        setTimeout(() => { el.classList.remove('input-error'); }, 400);
+    }
+
+    async function tim() {
+        const skuInput = document.getElementById('skuInput');
+        const inputVal = skuInput.value.trim();
+        const staff = document.getElementById('staffInput').value.trim();
+        const whFilter = document.getElementById('selWh').value.trim().toUpperCase();
+
+        if(!inputVal && !lastSku) return; 
+        if(!staff) { triggerInputError('staffInput'); return; }
+
+        let sku = (inputVal || lastSku).toString().trim().toUpperCase();
+        const upcMatch = upcData.find(u => u.upc3 === sku || u.upc4 === sku);
+        if(upcMatch) sku = upcMatch.sku.toUpperCase();
+        lastSku = sku;
+
+        let filtered = rawData.filter(i => {
+            const matchSku = i.sku.toString().toUpperCase() === sku;
+            const matchWh = (whFilter === "" || i.wh.toString().toUpperCase() === whFilter);
+            const matchShip = selectedShipOrders.length === 0 || 
+                            selectedShipOrders.some(s => s.toUpperCase() === i.ship.toString().toUpperCase());
+            return matchSku && matchWh && matchShip;
+        });
+
+        if(filtered.length > 0) {
+            const activeShips = [...new Set(filtered.map(f => f.ship.toString().toUpperCase()))];
+            const dbTotalRaw = filtered.reduce((s, i) => s + i.qty, 0);
+
+            const totalExported = exportData
+                .filter(e => e.sku === sku && activeShips.includes(e.ship))
+                .reduce((s, e) => s + e.qty, 0);
+
+            const totalInQueue = queueList
+                .filter(q => q.sku === sku && activeShips.includes(q.shipInfo.toUpperCase()))
+                .reduce((s, q) => s + q.customQty, 0);
+
+            currentMaxQty = Math.max(0, dbTotalRaw - totalExported - totalInQueue);
+            
+            document.getElementById('bannerQty').style.display = "block";
+            document.getElementById('res').style.display = "flex";
+            document.getElementById('qtyDisplay').value = currentMaxQty;
+
+            const mtbListDiv = document.getElementById('mtbList');
+            const mtbGroups = filtered.reduce((acc, item) => {
+                const mID = item.mtb.toString().toUpperCase();
+                const expThisMtb = exportData
+                    .filter(e => e.sku === sku && e.mtb === mID && activeShips.includes(e.ship))
+                    .reduce((s, e) => s + e.qty, 0);
+
+                const qThisMtb = queueList
+                    .filter(q => q.sku === sku && q.mtb === mID)
+                    .reduce((s, q) => s + q.customQty, 0);
+
+                const remain = item.qty - expThisMtb - qThisMtb;
+                if (remain > 0) acc[mID] = (acc[mID] || 0) + remain;
+                return acc;
+            }, {});
+
+            activeMtbBalances = { ...mtbGroups };
+            mtbListDiv.innerHTML = Object.keys(mtbGroups).map(mID => `
+                <div class="mtb-item">
+                    <div class="mtb-id-label">${mID}</div>
+                    <input type="number" class="mtb-input" placeholder="${mtbGroups[mID]}" 
+                        onkeydown="if(event.key==='Enter' || event.keyCode===13) { event.preventDefault(); addSpecificMtb('${mID}', this); }" autocomplete="off">
+                </div>
+            `).join('');
+
+            if(document.getElementById('zoneShow')) {
+                const sizeEntry = sizeData.find(s => s.sku === sku);
+                let zoneResult = "---";
+                if (sizeEntry) {
+                    const zoneEntry = zoneData.find(z => z.type === sizeEntry.type);
+                    if (zoneEntry) zoneResult = zoneEntry.zone;
+                }
+                document.getElementById('zoneShow').innerText = zoneResult;
+            }
+            if(document.getElementById('shipShow')) document.getElementById('shipShow').innerText = activeShips.join(", ");
+            
+            if(inputVal) {
+                setTimeout(() => {
+                    const qtyInput = document.getElementById('qtyDisplay');
+                    if(qtyInput) {
+                        qtyInput.focus();
+                    }
+                }, 100);
+            }
+        } else {
+            document.getElementById('bannerQty').style.display = "none";
+            document.getElementById('res').style.display = "none";
+            triggerInputError('skuInput');
+        }
+
+        const onHandRecords = onHandData.filter(h => h.skuId.toUpperCase() === sku);
+        const body = document.getElementById('onHandBody');
+        const table = document.getElementById('onHandTable');
+        const msg = document.getElementById('emptyMsg');
+        const locCountEl = document.getElementById('locCount');
+
+        if(onHandRecords.length > 0) {
+            msg.style.display = "none"; table.style.display = "table";
+            body.innerHTML = onHandRecords.map(item => `
+                <tr><td>${item.skuId}</td><td>${item.name}</td><td class="qty-cell">${item.qty}</td><td class="loc-cell">${item.loc}</td></tr>
+            `).join('');
+            if (locCountEl) locCountEl.innerText = onHandRecords.length + " LOCs";
+        } else {
+            table.style.display = "none"; msg.style.display = "flex";
+            if (locCountEl) locCountEl.innerText = "0 LOCs";
+        }
+    }
+
+    function validateAndAdd() {
+        const inputQty = parseFloat(document.getElementById('qtyDisplay').value);
+        if (inputQty > currentMaxQty || isNaN(inputQty) || inputQty <= 0) {
+            triggerInputError('qtyDisplay'); 
+        } else {
+            addToQueue();
+        }
+    }
+
+    function addToQueue() {
+        let remainingToExport = parseFloat(document.getElementById('qtyDisplay').value);
+        const fromDate = document.getElementById('dateFrom').value;
+        const now = new Date();
+        
+        const dateStr = now.getDate().toString().padStart(2, '0') + '/' +
+                        (now.getMonth() + 1).toString().padStart(2, '0') + '/' +
+                        now.getFullYear();
+        
+        const timeStr = now.getHours().toString().padStart(2, '0') + ':' +
+                        now.getMinutes().toString().padStart(2, '0') + ':' +
+                        now.getSeconds().toString().padStart(2, '0');
+
+        for (let mID in activeMtbBalances) {
+            if (remainingToExport <= 0) break;
+
+            let availableInThisMtb = activeMtbBalances[mID];
+            let take = Math.min(remainingToExport, availableInThisMtb);
+
+            if (take > 0) {
+                queueList.push({
+                    staff: document.getElementById('staffInput').value.trim(),
+                    dateStr: fromDate,
+                    sku: lastSku,
+                    batchID: currentBatchCode,
+                    packing: document.getElementById('packingSelect').value,
+                    shipInfo: document.getElementById('shipShow').innerText,
+                    boxInfo: lockedBoxId || '---',
+                    mtb: mID,
+                    inboundDate2: fromDate,
+                    zone: document.getElementById('zoneShow').innerText,
+                    wh: document.getElementById('selWh').value,
+                    customQty: take,
+                    inputDate: dateStr, 
+                    inputTime: timeStr,
+                    note: document.getElementById('noteInput').value.trim(),
+                    status: document.getElementById('statusSelect').value
+                });
+                remainingToExport -= take;
+            }
+        }
+
+        renderQueue();
+        document.getElementById('noteInput').value = "";
+        tim(); 
+        
+        if(currentMaxQty <= 0) {
+            document.getElementById('skuInput').value = "";
+            document.getElementById('skuInput').focus();
+            document.getElementById('res').style.display = "none";
+            document.getElementById('bannerQty').style.display = "none";
+        }
+    }
+
+    function renderQueue() {
+        const qBody = document.getElementById('queueBody');
+        const qCount = document.getElementById('queueCount');
+        const qEmpty = document.getElementById('emptyQueue');
+
+        if(queueList.length === 0) {
+            qBody.innerHTML = "";
+            qEmpty.style.display = "flex";
+            qCount.innerText = "0 SKU";
+            return;
+        }
+
+        qEmpty.style.display = "none";
+        const uniqueSKUs = new Set(queueList.map(item => item.sku));
+        qCount.innerText = uniqueSKUs.size + " SKU";
+        
+        const uniqueShips = new Set(queueList.map(item => item.shipInfo));
+        if(document.getElementById('queueShipCount')) {
+            document.getElementById('queueShipCount').innerText = uniqueShips.size + " Batches";
+        }
+
+        qBody.innerHTML = queueList.map((item, index) => `
+            <tr>
+                <td style="font-weight:bold;">${item.sku}</td>
+                <td>
+                    <div class="info-horizontal">
+                        <span class="info-tag">S:${item.shipInfo}</span>
+                        <span class="info-tag">B:${item.boxInfo}</span>
+                        <span class="info-tag">M:${item.mtb}</span>
+                        <span class="info-tag">P:${item.packing}</span>
+                        ${item.note ? `<span class="info-tag">N:${item.note}</span>` : ''}
+                    </div>
+                </td>
+                <td style="text-align:center"><input type="number" class="wait-qty-input" id="queueInput_${index}" value="${item.customQty}" onchange="updateQueueQty(${index}, this)"></td>
+                <td class="btn-del" onclick="removeFromQueue(${index})">X</td>
+            </tr>
+        `).join('');
+    }
+
+    function updateQueueQty(index, inputEl) {
+        const newVal = parseFloat(inputEl.value) || 0;
+        const currentItemSku = queueList[index].sku;
+        const whFilter = document.getElementById('selWh').value;
+        const dFrom = new Date(document.getElementById('dateFrom').value).setHours(0,0,0,0);
+        const dTo = new Date().setHours(23,59,59,999);
+        
+        let filtered = rawData.filter(i => {
+            const time = parseDate(i.ngay);
+            return i.sku === currentItemSku && (whFilter === "" || i.wh === whFilter) && (time >= dFrom && time <= dTo);
+        });
+        
+        const dbTotalRaw = filtered.reduce((s, i) => s + i.qty, 0);
+        const totalExported = exportData.filter(e => e.sku === currentItemSku).reduce((s, e) => s + e.qty, 0);
+        const totalOtherInQueue = queueList.reduce((s, q, idx) => (idx !== index && q.sku === currentItemSku) ? s + q.customQty : s, 0);
+        const maxAvailable = Math.max(0, dbTotalRaw - totalExported - totalOtherInQueue);
+
+        if (newVal > maxAvailable || newVal <= 0) {
+            triggerInputError(inputEl);
+            inputEl.value = queueList[index].customQty; 
+        } else {
+            queueList[index].customQty = newVal;
+            tim(); 
+        }
+    }
+
+    function removeFromQueue(index) {
+        queueList.splice(index, 1);
+        renderQueue();
+        tim();
+    }
+
+    async function saveAllQueue() {
+        if(queueList.length === 0) return; 
+        
+        // --- LOGIC MAP TỰ ĐỘNG BOX ID VỚI SHIP ORDER BATCH ---
+        let allShips = [];
+        queueList.forEach(item => {
+            if (item.shipInfo && item.shipInfo !== '---') {
+                allShips = allShips.concat(item.shipInfo.split(',').map(s => s.trim()));
+            }
+        });
+        const uniqueShips = [...new Set(allShips)];
+        
+        if (uniqueShips.length > 0 && selectedBoxes.length < uniqueShips.length) {
+            alert("Lỗi: Số lượng Box ID (" + selectedBoxes.length + ") đang ít hơn số lượng Ship Order Batch (" + uniqueShips.length + ") trong Queue. Cần nhập ít nhất " + uniqueShips.length + " Box ID!");
+            return;
+        }
+
+        // Gom cặp Box ID với Ship Order Batch theo thứ tự 1-1
+        let shipToBoxMap = {};
+        uniqueShips.forEach((ship, idx) => {
+            shipToBoxMap[ship] = selectedBoxes[idx] || '---';
+        });
+
+        // Cập nhật lại Box ID cho toàn bộ hàng chờ trước khi xuất
+        queueList.forEach(item => {
+            if (item.shipInfo && item.shipInfo !== '---') {
+                let shipsInItem = item.shipInfo.split(',').map(s => s.trim());
+                let mappedBoxes = shipsInItem.map(s => shipToBoxMap[s] || '---');
+                item.boxInfo = mappedBoxes.join(', ');
+            } else {
+                item.boxInfo = '---';
+            }
+        });
+        // -----------------------------------------------------
+
+        const btn = document.getElementById('btnSave');
+        btn.disabled = true;
+        document.getElementById('status').innerText = "Saving Data...";
+
+        try {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(queueList)
+            });
+
+            queueList.forEach(data => {
+                exportData.push({ 
+                    sku: data.sku.toUpperCase(), 
+                    qty: data.customQty, 
+                    mtb: data.mtb.toUpperCase(), 
+                    ship: data.shipInfo.toUpperCase()
+                });
+            });
+
+            queueList = [];
+            selectedBoxes = [];
+            updateBoxListUI();
+            setStatus('Good'); // Reset status lại mặc định     
+            
+            currentBatchCode = generateBatchCode();
+            document.getElementById('batchDisplay').innerText = currentBatchCode;
+
+            renderQueue();
+            updateStatusTooltip();
+            document.getElementById('status').innerText = "Saved Successfully";
+            fetchData(); 
+        } catch(e) {
+            document.getElementById('status').innerText = "Save Error";
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function addSpecificMtb(mtbId, inputEl) {
+        const inputQty = parseFloat(inputEl.value);
+        const mKey = mtbId.toString();
+        const availInMtb = activeMtbBalances[mKey] || 0;
+
+        if (isNaN(inputQty) || inputQty <= 0 || inputQty > (availInMtb + 0.01)) {
+            triggerInputError(inputEl);
+            return;
+        }
+
+        const fromDate = document.getElementById('dateFrom').value;
+        const now = new Date();
+        const dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
+        const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+
+        queueList.push({
+            staff: document.getElementById('staffInput').value.trim(),
+            dateStr: fromDate,
+            sku: lastSku,
+            batchID: currentBatchCode,
+            packing: document.getElementById('packingSelect').value,
+            shipInfo: document.getElementById('shipShow').innerText,
+            boxInfo: lockedBoxId || '---',
+            mtb: mKey,
+            zone: document.getElementById('zoneShow').innerText,
+            wh: document.getElementById('selWh').value,
+            customQty: inputQty,
+            inputDate: dateStr, 
+            inputTime: timeStr,
+            note: document.getElementById('noteInput').value.trim(),
+            status: document.getElementById('statusSelect').value
+        });
+
+        activeMtbBalances[mKey] -= inputQty;
+        currentMaxQty -= inputQty;
+        document.getElementById('qtyDisplay').value = currentMaxQty.toFixed(0);
+
+        if (activeMtbBalances[mKey] > 0) {
+            inputEl.placeholder = activeMtbBalances[mKey];
+            inputEl.value = "";
+        } else {
+            inputEl.placeholder = "Done";
+            inputEl.value = "";
+            inputEl.disabled = true;
+        }
+
+        renderQueue();
+        document.getElementById('noteInput').value = "";
+        
+        if(currentMaxQty <= 0) {
+            setTimeout(() => {
+                document.getElementById('skuInput').value = "";
+                document.getElementById('skuInput').focus();
+                document.getElementById('res').style.display = "none";
+                document.getElementById('bannerQty').style.display = "none";
+            }, 800);
+        }
+    }
+
+    function setPacking(val) {
+        const packSelect = document.getElementById('packingSelect');
+        packSelect.value = val;
+        document.getElementById('btnBasket').classList.toggle('active', val === 'Basket');
+        document.getElementById('btnPallet').classList.toggle('active', val === 'Pallet');
+    }
+function setStatus(val) {
+        document.getElementById('statusSelect').value = val;
+        document.getElementById('btnGood').classList.toggle('active', val === 'Good');
+        document.getElementById('btnBroken').classList.toggle('active', val === 'Hư hỏng');
+        document.getElementById('btnWrong').classList.toggle('active', val === 'Sai hàng');
+        document.getElementById('btnMissing').classList.toggle('active', val === 'Thiếu hàng');
+    }
+    window.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            const current = document.getElementById('packingSelect').value;
+            const newVal = (current === "Basket") ? "Pallet" : "Basket";
+            setPacking(newVal);
+        }
+    });
+
+    function updateStatusTooltip() {
+        const dot = document.getElementById('statusDot');
+        if (!dot) return;
+
+        const whFilter = document.getElementById('selWh').value.trim().toUpperCase();
+
+        if (selectedShipOrders.length === 0) {
+            dot.title = "NO BATCH SELECTED";
+            return;
+        }
+
+        dot.style.background = "#0000ff";
+        const ships = selectedShipOrders.map(s => s.toString().toUpperCase().trim());
+        
+        let tooltipContent = "";
+        ships.forEach((ship, index) => {
+            const rawF = rawData.filter(i => {
+                const matchShip = i.ship && i.ship.toString().toUpperCase().trim() === ship;
+                const matchWh = (whFilter === "" || i.wh.toString().toUpperCase() === whFilter);
+                return matchShip && matchWh;
+            });
+
+            const expF = exportData.filter(e => {
+                if (!e.ship) return false;
+                return e.ship.toString().toUpperCase().includes(ship);
+            });
+
+            const rawSkus = [...new Set(rawF.map(i => i.sku.toString().toUpperCase()))];
+            const rawQtyTotal = rawF.reduce((sum, i) => sum + i.qty, 0);
+            
+            const expSkusSet = new Set(expF.map(e => e.sku.toString().toUpperCase()));
+            const expQtyTotal = expF.reduce((sum, e) => sum + e.qty, 0);
+
+            let remSkuCount = 0;
+            rawSkus.forEach(sku => {
+                const rQty = rawF.filter(i => i.sku.toString().toUpperCase() === sku).reduce((s, i) => s + i.qty, 0);
+                const eQty = expF.filter(e => e.sku.toString().toUpperCase() === sku).reduce((s, e) => s + e.qty, 0);
+                if (rQty - eQty > 0) remSkuCount++;
+            });
+
+            tooltipContent += `[ SHIP: ${ship} ]\n` +
+                              `RAW:   ${rawSkus.length} SKU | ${rawQtyTotal} Items\n` +
+                              `SAVED: ${expSkusSet.size} SKU | ${expQtyTotal} Items\n` +
+                              `REM:   ${remSkuCount} SKU | ${rawQtyTotal - expQtyTotal} Items`;
+            
+            if (index < ships.length - 1) tooltipContent += `\n----------------\n`;
+        });
+        
+        dot.title = tooltipContent;
+    }
+
+    function showGuide() {
+        document.getElementById('guideModal').style.display = 'flex';
+    }
+
+    function closeGuide(e) {
+        if (e.target.id === 'guideModal') {
+            e.target.style.display = 'none';
+        }
+    }
+</script>
+
+<div id="guideModal" class="modal-overlay" onclick="closeGuide(event)">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">System Guide</div>
+            <div class="modal-close" onclick="document.getElementById('guideModal').style.display='none'">X</div>
+        </div>
+        <div class="modal-body">
+            <div class="guide-item"><b>1. REFRESH:</b> Kích biểu tượng R để tải lại dữ liệu.</div>
+            <div class="guide-item"><b>2. STAFF:</b> Nhập tên nhân viên trước.</div>
+            <div class="guide-item"><b>3. SHIP ORDER:</b> Nhập mã Ship Order và Enter.</div>
+            <div class="guide-item"><b>4. Input SKU:</b> Nhập mã để kiểm tra tồn kho.</div>
+            <div class="guide-item"><b>5. QUERY:</b> Nhập số lượng và Enter để đẩy vào Queue.</div>
+            <div class="guide-item"><b>6. DONE:</b> Nhấn Execute Saving để lưu.</div>
+            <div class="guide-item" style="border-top: 1px groove #fff; padding-top: 10px; margin-top: 15px;">
+                <b>Phím tắt:</b><br>
+                - <b>Ctrl + Shift + Z:</b> Chuyển Basket/Pallet.<br>
+                - <b>Chỉ chuột vào ô vuông nhỏ:</b> Xem tổng quát lô.
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
