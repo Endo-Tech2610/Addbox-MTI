@@ -96,14 +96,38 @@
     justify-content: flex-start;
 }
 .panel-bottom {
-    flex: 0 0 auto;
+    flex: 0 0 33.333%;
     min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: space-between;
     border-top: 1px groove #fff;
     padding-top: 6px;
+}
+.autobot-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 5px;
+}
+.bot-log-box {
+    flex: 1;
+    min-height: 0;
+    background: #000000;
+    color: #00ff00;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 10px;
+    overflow-y: auto;
+    border: 1px inset #fff;
+    padding: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.bot-log-box div {
+    color: #00ff00 !important;
 }
         /* Thanh tiêu đề cửa sổ */
         .header { 
@@ -419,8 +443,18 @@
                                 <div id="btnBroken" class="pack-item" onclick="setStatus('Hư hỏng')">Hư hỏng</div>
                                 <div id="btnWrong" class="pack-item" onclick="setStatus('Sai hàng')">Sai hàng</div>
                                 <div id="btnMissing" class="pack-item" onclick="setStatus('Thiếu hàng')">Thiếu hàng</div>
+                                <div id="btnExcess" class="pack-item" onclick="setStatus('Dư hàng')">Dư hàng</div>
                             </div>
                             <input type="hidden" id="statusSelect" value="Good">
+
+                            <div id="wrongSkuWrap" style="display:none; margin-top:5px;">
+                                <label>SKU thực tế (hàng sai):</label>
+                                <input type="text" id="wrongSkuInput" autocomplete="off" placeholder="Nhập SKU / UPC thực tế...">
+                            </div>
+                            <div id="excessBoxWrap" style="display:none; margin-top:5px;">
+                                <label>Box Dư:</label>
+                                <input type="text" id="excessBoxInput" autocomplete="off" placeholder="Nhập Box Dư...">
+                            </div>
                         </div>
                     </div>
         </div>
@@ -450,8 +484,20 @@
     </div>
     <!-- KẾT THÚC CỤM 2/3 TRÊN -->
 
-    <!-- KHUNG DƯỚI: Status (Cố định) -->
+    <!-- KHUNG 1/3 DƯỚI: AutoBot + Status (Cố định) -->
 <div class="panel-bottom">
+    <div class="autobot-section">
+        <div style="font-weight: bold; color: var(--win-title);">AutoBot Integration</div>
+                <div style="display: flex; gap: 5px; flex-shrink: 0;">
+            <button onclick="launchAutoBot()" style="height: 30px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; flex: 2;">
+                <span style="color: blue;">▶</span> Start Autobot.exe
+            </button>
+            <button id="btnPauseBot" onclick="togglePauseBot()" disabled style="height: 30px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; flex: 1;">
+                <span id="pauseIcon" style="color: #808000;">⏸</span> <span id="pauseLabel">Pause</span>
+            </button>
+        </div>
+        <div id="botLogBox" class="bot-log-box"></div>
+    </div>
     <div id="status-area">
             <div style="display: flex; align-items: center; gap: 5px;">
                 <button class="refresh-circle" id="refreshBtn" onclick="fetchData()" title="Refresh">R</button>
@@ -511,7 +557,74 @@
         </div>
     </div>
 </div>
+<script type="text/javascript" src="/eel.js"></script>
 <script>
+    
+        let isBotPaused = false;
+
+    function launchAutoBot() {
+    const box = document.getElementById('botLogBox');
+    if (box) box.innerHTML = "";
+
+    document.getElementById('status').innerText = "AutoBot is starting up...";
+    eel.start_bot_from_ui()(function(result) {
+        if (result === "already_running") {
+            document.getElementById('status').innerText = "AutoBot is already running!";
+        } else {
+            document.getElementById('status').innerText = "AutoBot has started!";
+        }
+        isBotPaused = false;
+        setPauseButtonUI(false);
+        document.getElementById('btnPauseBot').disabled = false;
+    });
+}
+
+    function togglePauseBot() {
+        const btn = document.getElementById('btnPauseBot');
+        btn.disabled = true; // chặn double-click trong lúc chờ phản hồi
+
+        if (!isBotPaused) {
+            document.getElementById('status').innerText = "Pausing after current row/box...";
+            eel.pause_bot_from_ui()(function() {
+                isBotPaused = true;
+                setPauseButtonUI(true);
+                document.getElementById('status').innerText = "AutoBot paused";
+                btn.disabled = false;
+            });
+        } else {
+            document.getElementById('status').innerText = "Resuming AutoBot...";
+            eel.resume_bot_from_ui()(function() {
+                isBotPaused = false;
+                setPauseButtonUI(false);
+                document.getElementById('status').innerText = "AutoBot resumed";
+                btn.disabled = false;
+            });
+        }
+    }
+
+    function setPauseButtonUI(paused) {
+        document.getElementById('pauseIcon').textContent = paused ? '▶' : '⏸';
+        document.getElementById('pauseLabel').textContent = paused ? 'Resume' : 'Pause';
+    }
+
+    eel.expose(update_bot_status);
+    function update_bot_status(running) {
+        if (!running) {
+            document.getElementById('status').innerText = "AutoBot has stopped";
+            isBotPaused = false;
+            setPauseButtonUI(false);
+            document.getElementById('btnPauseBot').disabled = true;
+        }
+    }
+    eel.expose(append_bot_log);
+    function append_bot_log(msg) {
+        const box = document.getElementById('botLogBox');
+        if (!box) return;
+        const line = document.createElement('div');
+        line.textContent = msg;
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+    }
     function updateWhDropdownByShip() {
         const whInput = document.getElementById('selWh');
         const whList = document.getElementById('whList');
@@ -609,7 +722,7 @@
     const id = '1tZSfBsoETfC1awAuh9K3ke3cVL197l5GcagcUmy08AA';
     
     const rawUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,B,C,D,E,F,G&sheet=Data%20raw%20MTI`;
-    const exportUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20D,E,C,F&sheet=Export%20Data%20MTIS`;
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20D,E,C,F,P&sheet=Export%20Data%20MTIS`;
     const onHandUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20C,D,H,O,R&sheet=On%20hand`;
     const upcUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,G,H&sheet=UPC`;
     const sizeUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,C,F,G&sheet=Size`;
@@ -699,20 +812,34 @@
             fetch(sizeUrl + '&t=' + Date.now())
         ]);
 
+        // ---- DEBUG: kiểm tra HTTP status ----
+        console.log("HTTP Status:", {
+            raw: rRaw.status, export: rExp.status, hand: rHand.status,
+            upc: rUpc.status, size: rSize.status
+        });
+
         const tRaw = await rRaw.text(), tExp = await rExp.text(), tHand = await rHand.text(), tUpc = await rUpc.text(), tSize = await rSize.text();
 
+        // ---- DEBUG: xem 200 ký tự đầu của response thô ----
+        console.log("RAW preview:", tRaw.substring(0, 200));
+        console.log("EXPORT preview:", tExp.substring(0, 200));
+        console.log("HAND preview:", tHand.substring(0, 200));
+        
         rawData = JSON.parse(tRaw.substring(47, tRaw.length - 2)).table.rows.map(row => ({
             ngay: row.c[0]?.f || row.c[0]?.v || '', mtb: row.c[1]?.v || '',
             sku: row.c[2]?.v?.toString().trim() || '', qty: parseFloat(row.c[3]?.v) || 0,
             ship: row.c[4]?.v || '---', box: row.c[5]?.v || '---', wh: row.c[6]?.v || ''
         }));
         
-        exportData = JSON.parse(tExp.substring(47, tExp.length - 2)).table.rows.map(row => ({
-            sku: row.c[0]?.v?.toString().trim().toUpperCase() || '', 
-            qty: parseFloat(row.c[1]?.v) || 0,
-            mtb: row.c[2]?.v?.toString().trim().toUpperCase() || '',
-            ship: row.c[3]?.v?.toString().trim().toUpperCase() || '' 
-        }));
+        // Bỏ các dòng Dư hàng (có Box Dư ở cột P) để không trừ tồn của Ship Order
+        exportData = JSON.parse(tExp.substring(47, tExp.length - 2)).table.rows
+            .filter(row => !(row.c[4]?.v))
+            .map(row => ({
+                sku: row.c[0]?.v?.toString().trim().toUpperCase() || '', 
+                qty: parseFloat(row.c[1]?.v) || 0,
+                mtb: row.c[2]?.v?.toString().trim().toUpperCase() || '',
+                ship: row.c[3]?.v?.toString().trim().toUpperCase() || '' 
+            }));
         
         const ALLOWED_ZONES = ['A', 'AT', 'B', 'BT', 'C'];
         onHandData = JSON.parse(tHand.substring(47, tHand.length - 2)).table.rows
@@ -743,6 +870,8 @@
                 zoneData.push({ type: zoneType, zone: zoneValue });
             }
         });
+        console.log('sizeData count:', sizeData.length, sizeData.slice(0, 3));
+        console.log('zoneData count:', zoneData.length, zoneData.slice(0, 3));
         const whs = [...new Set(rawData.map(i => i.wh))].filter(w => w);
         document.getElementById('whList').innerHTML = whs.map(w => `<option value="${w}">`).join('');
         const whSelect = document.getElementById('selWh');
@@ -754,6 +883,7 @@
         document.getElementById('status').innerText = "Data Ready";
         if(lastSku) tim(); 
     } catch(e) { 
+        console.error("FETCH ERROR DETAIL:", e);
         document.getElementById('status').innerText = "Connection Error: " + e.message; 
     }
 }
@@ -808,6 +938,8 @@
         if(upcMatch) sku = upcMatch.sku.toUpperCase();
         lastSku = sku;
 
+        const isExcess = (document.getElementById('statusSelect').value === 'Dư hàng');
+
         let filtered = rawData.filter(i => {
             const matchSku = i.sku.toString().toUpperCase() === sku;
             const matchWh = (whFilter === "" || i.wh.toString().toUpperCase() === whFilter);
@@ -816,7 +948,24 @@
             return matchSku && matchWh && matchShip;
         });
 
-        if(filtered.length > 0) {
+        if (isExcess) {
+            // Dư hàng: SKU có thể không nằm trong Ship Order → vẫn cho nhập, không giới hạn số lượng
+            currentMaxQty = Infinity;
+            activeMtbBalances = {};
+            document.getElementById('bannerQty').style.display = "block";
+            document.getElementById('res').style.display = "none";
+            document.getElementById('qtyDisplay').value = "";
+
+            const sizeEntry = sizeData.find(s => s.sku === sku);
+            const zoneEntry = sizeEntry ? zoneData.find(z => z.type === sizeEntry.type) : null;
+            document.getElementById('zoneShow').innerText = zoneEntry ? zoneEntry.zone : "---";
+            document.getElementById('shipShow').innerText = selectedShipOrders.length ? selectedShipOrders.join(", ") : "---";
+
+            if (inputVal) setTimeout(() => {
+                const boxEl = document.getElementById('excessBoxInput');
+                (boxEl.value.trim() ? document.getElementById('qtyDisplay') : boxEl).focus();
+            }, 100);
+        } else if(filtered.length > 0) {
             const activeShips = [...new Set(filtered.map(f => f.ship.toString().toUpperCase()))];
             const dbTotalRaw = filtered.reduce((s, i) => s + i.qty, 0);
 
@@ -825,7 +974,7 @@
                 .reduce((s, e) => s + e.qty, 0);
 
             const totalInQueue = queueList
-                .filter(q => q.sku === sku && activeShips.includes(q.shipInfo.toUpperCase()))
+                .filter(q => q.status !== 'Dư hàng' && q.sku === sku && activeShips.includes(q.shipInfo.toUpperCase()))
                 .reduce((s, q) => s + q.customQty, 0);
 
             currentMaxQty = Math.max(0, dbTotalRaw - totalExported - totalInQueue);
@@ -842,7 +991,7 @@
                     .reduce((s, e) => s + e.qty, 0);
 
                 const qThisMtb = queueList
-                    .filter(q => q.sku === sku && q.mtb === mID)
+                    .filter(q => q.status !== 'Dư hàng' && q.sku === sku && q.mtb === mID)
                     .reduce((s, q) => s + q.customQty, 0);
 
                 const remain = item.qty - expThisMtb - qThisMtb;
@@ -861,9 +1010,11 @@
 
             if(document.getElementById('zoneShow')) {
                 const sizeEntry = sizeData.find(s => s.sku === sku);
+                console.log('Đang tìm SKU:', sku, '→ sizeEntry:', sizeEntry);
                 let zoneResult = "---";
                 if (sizeEntry) {
                     const zoneEntry = zoneData.find(z => z.type === sizeEntry.type);
+                    console.log('Type cần tìm:', sizeEntry.type, '→ zoneEntry:', zoneEntry);
                     if (zoneEntry) zoneResult = zoneEntry.zone;
                 }
                 document.getElementById('zoneShow').innerText = zoneResult;
@@ -904,11 +1055,26 @@
 
     function validateAndAdd() {
         const inputQty = parseFloat(document.getElementById('qtyDisplay').value);
-        if (inputQty > currentMaxQty || isNaN(inputQty) || inputQty <= 0) {
-            triggerInputError('qtyDisplay'); 
-        } else {
-            addToQueue();
+        const status = document.getElementById('statusSelect').value;
+
+        if (isNaN(inputQty) || inputQty <= 0) return triggerInputError('qtyDisplay');
+        if (status === 'Sai hàng' && !document.getElementById('wrongSkuInput').value.trim())
+            return triggerInputError('wrongSkuInput');
+        if (status === 'Dư hàng') {
+            if (!document.getElementById('excessBoxInput').value.trim())
+                return triggerInputError('excessBoxInput');
+            return addExcessToQueue(inputQty);
         }
+        if (inputQty > currentMaxQty) return triggerInputError('qtyDisplay');
+        addToQueue();
+    }
+
+    // Lấy SKU thực tế cho hàng Sai hàng (quét UPC cũng được)
+    function getWrongSku() {
+        if (document.getElementById('statusSelect').value !== 'Sai hàng') return '';
+        const s = document.getElementById('wrongSkuInput').value.trim().toUpperCase();
+        const m = upcData.find(u => u.upc3 === s || u.upc4 === s);
+        return m ? m.sku.toUpperCase() : s;
     }
 
     function addToQueue() {
@@ -947,7 +1113,9 @@
                     inputDate: dateStr, 
                     inputTime: timeStr,
                     note: document.getElementById('noteInput').value.trim(),
-                    status: document.getElementById('statusSelect').value
+                    status: document.getElementById('statusSelect').value,
+                    wrongSku: getWrongSku(),
+                    boxDu: ''
                 });
                 remainingToExport -= take;
             }
@@ -955,6 +1123,7 @@
 
         renderQueue();
         document.getElementById('noteInput').value = "";
+        document.getElementById('wrongSkuInput').value = "";
         tim(); 
         
         if(currentMaxQty <= 0) {
@@ -963,6 +1132,40 @@
             document.getElementById('res').style.display = "none";
             document.getElementById('bannerQty').style.display = "none";
         }
+    }
+
+    // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
+    function addExcessToQueue(qty) {
+        const fromDate = document.getElementById('dateFrom').value;
+        const now = new Date();
+        const p2 = n => n.toString().padStart(2, '0');
+        queueList.push({
+            staff: document.getElementById('staffInput').value.trim(),
+            dateStr: fromDate,
+            sku: lastSku,
+            batchID: currentBatchCode,
+            packing: document.getElementById('packingSelect').value,
+            shipInfo: document.getElementById('shipShow').textContent,
+            boxInfo: '',
+            mtb: '---',
+            inboundDate2: fromDate,
+            zone: document.getElementById('zoneShow').textContent,
+            wh: document.getElementById('selWh').value,
+            customQty: qty,
+            inputDate: p2(now.getDate()) + '/' + p2(now.getMonth() + 1) + '/' + now.getFullYear(),
+            inputTime: p2(now.getHours()) + ':' + p2(now.getMinutes()) + ':' + p2(now.getSeconds()),
+            note: document.getElementById('noteInput').value.trim(),
+            status: 'Dư hàng',
+            wrongSku: '',
+            boxDu: document.getElementById('excessBoxInput').value.trim().toUpperCase()
+        });
+        renderQueue();
+        document.getElementById('noteInput').value = "";
+        document.getElementById('skuInput').value = "";
+        document.getElementById('bannerQty').style.display = "none";
+        document.getElementById('res').style.display = "none";
+        lastSku = "";
+        document.getElementById('skuInput').focus();   // Box Dư giữ nguyên để nhập tiếp SKU dư cùng box
     }
 
     function renderQueue() {
@@ -992,7 +1195,10 @@
                 <td>
                     <div class="info-horizontal">
                         <span class="info-tag">S:${item.shipInfo}</span>
-                        <span class="info-tag">B:${item.boxInfo}</span>
+                        <span class="info-tag" style="font-weight:bold;">${item.status}</span>
+                        ${item.status === 'Good' ? `<span class="info-tag">B:${item.boxInfo}</span>` : ''}
+                        ${item.status === 'Dư hàng' ? `<span class="info-tag">BOX DƯ:${item.boxDu}</span>` : ''}
+                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}
                         <span class="info-tag">M:${item.mtb}</span>
                         <span class="info-tag">P:${item.packing}</span>
                         ${item.note ? `<span class="info-tag">N:${item.note}</span>` : ''}
@@ -1007,6 +1213,7 @@
     function updateQueueQty(index, inputEl) {
         const newVal = parseFloat(inputEl.value) || 0;
         const currentItemSku = queueList[index].sku;
+        const isExcess = queueList[index].status === 'Dư hàng';
         const whFilter = document.getElementById('selWh').value;
         const dFrom = new Date(document.getElementById('dateFrom').value).setHours(0,0,0,0);
         const dTo = new Date().setHours(23,59,59,999);
@@ -1018,10 +1225,11 @@
         
         const dbTotalRaw = filtered.reduce((s, i) => s + i.qty, 0);
         const totalExported = exportData.filter(e => e.sku === currentItemSku).reduce((s, e) => s + e.qty, 0);
-        const totalOtherInQueue = queueList.reduce((s, q, idx) => (idx !== index && q.sku === currentItemSku) ? s + q.customQty : s, 0);
+        const totalOtherInQueue = queueList.reduce((s, q, idx) =>
+            (idx !== index && q.sku === currentItemSku && q.status !== 'Dư hàng') ? s + q.customQty : s, 0);
         const maxAvailable = Math.max(0, dbTotalRaw - totalExported - totalOtherInQueue);
 
-        if (newVal > maxAvailable || newVal <= 0) {
+        if (newVal <= 0 || (!isExcess && newVal > maxAvailable)) {
             triggerInputError(inputEl);
             inputEl.value = queueList[index].customQty; 
         } else {
@@ -1038,38 +1246,44 @@
 
     async function saveAllQueue() {
         if(queueList.length === 0) return; 
+
+        const isGood   = q => q.status === 'Good';
+        const isExcess = q => q.status === 'Dư hàng';
+        const isIssue  = q => !isGood(q) && !isExcess(q);   // Hư hỏng / Sai hàng / Thiếu hàng
         
-        // --- LOGIC MAP TỰ ĐỘNG BOX ID VỚI SHIP ORDER BATCH ---
-        let allShips = [];
-        queueList.forEach(item => {
+        // 1) Nhóm Good: map 1-1 Ship Order → Box ID (chỉ tính các dòng Good)
+        const goodShips = [];
+        queueList.filter(isGood).forEach(item => {
             if (item.shipInfo && item.shipInfo !== '---') {
-                allShips = allShips.concat(item.shipInfo.split(',').map(s => s.trim()));
+                item.shipInfo.split(',').map(s => s.trim()).forEach(s => { if (!goodShips.includes(s)) goodShips.push(s); });
             }
         });
-        const uniqueShips = [...new Set(allShips)];
-        
-        if (uniqueShips.length > 0 && selectedBoxes.length < uniqueShips.length) {
-            alert("Lỗi: Số lượng Box ID (" + selectedBoxes.length + ") đang ít hơn số lượng Ship Order Batch (" + uniqueShips.length + ") trong Queue. Cần nhập ít nhất " + uniqueShips.length + " Box ID!");
+        if (goodShips.length > 0 && selectedBoxes.length < goodShips.length) {
+            alert("Lỗi: Số lượng Box ID (" + selectedBoxes.length + ") đang ít hơn số lượng Ship Order Batch của hàng Good (" + goodShips.length + ") trong Queue. Cần nhập ít nhất " + goodShips.length + " Box ID!");
             return;
         }
+        const shipToBox = {};
+        goodShips.forEach((s, i) => { shipToBox[s] = selectedBoxes[i]; });
 
-        // Gom cặp Box ID với Ship Order Batch theo thứ tự 1-1
-        let shipToBoxMap = {};
-        uniqueShips.forEach((ship, idx) => {
-            shipToBoxMap[ship] = selectedBoxes[idx] || '---';
-        });
-
-        // Cập nhật lại Box ID cho toàn bộ hàng chờ trước khi xuất
+        // 2) Gán box theo nhóm
         queueList.forEach(item => {
-            if (item.shipInfo && item.shipInfo !== '---') {
-                let shipsInItem = item.shipInfo.split(',').map(s => s.trim());
-                let mappedBoxes = shipsInItem.map(s => shipToBoxMap[s] || '---');
-                item.boxInfo = mappedBoxes.join(', ');
+            if (isGood(item)) {
+                item.boxInfo = item.shipInfo.split(',').map(s => shipToBox[s.trim()] || '---').join(', ');
+                item.boxDu = '';
+            } else if (isIssue(item)) {
+                item.boxInfo = 'BOX_ISSUE';   // Apps Script thay bằng Box Issue lấy từ sheet Box DP
+                item.boxDu = '';
             } else {
-                item.boxInfo = '---';
+                item.boxInfo = '';            // Dư hàng: cột Box trống, dùng cột P (Box Dư)
             }
         });
-        // -----------------------------------------------------
+
+        // 3) Sắp xếp thành cụm: Good (theo box) → Issue (chung 1 box) → Dư (theo Box Dư)
+        const rank = q => isGood(q) ? 0 : (isIssue(q) ? 1 : 2);
+        const sec  = q => isGood(q)
+            ? String(Math.max(0, selectedBoxes.indexOf(q.boxInfo.split(',')[0].trim()))).padStart(3, '0')
+            : (isExcess(q) ? q.boxDu : '');
+        queueList.sort((a, b) => (rank(a) - rank(b)) || sec(a).localeCompare(sec(b)));   // sort ổn định
 
         const btn = document.getElementById('btnSave');
         btn.disabled = true;
@@ -1083,7 +1297,8 @@
                 body: JSON.stringify(queueList)
             });
 
-            queueList.forEach(data => {
+            // Dư hàng không trừ tồn nên không đẩy vào exportData
+            queueList.filter(q => !isExcess(q)).forEach(data => {
                 exportData.push({ 
                     sku: data.sku.toUpperCase(), 
                     qty: data.customQty, 
@@ -1121,6 +1336,12 @@
             return;
         }
 
+        if (document.getElementById('statusSelect').value === 'Sai hàng' &&
+            !document.getElementById('wrongSkuInput').value.trim()) {
+            triggerInputError('wrongSkuInput');
+            return;
+        }
+
         const fromDate = document.getElementById('dateFrom').value;
         const now = new Date();
         const dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
@@ -1141,7 +1362,9 @@
             inputDate: dateStr, 
             inputTime: timeStr,
             note: document.getElementById('noteInput').value.trim(),
-            status: document.getElementById('statusSelect').value
+            status: document.getElementById('statusSelect').value,
+            wrongSku: getWrongSku(),
+            boxDu: ''
         });
 
         activeMtbBalances[mKey] -= inputQty;
@@ -1159,6 +1382,7 @@
 
         renderQueue();
         document.getElementById('noteInput').value = "";
+        document.getElementById('wrongSkuInput').value = "";
         
         if(currentMaxQty <= 0) {
             setTimeout(() => {
@@ -1176,13 +1400,26 @@
         document.getElementById('btnBasket').classList.toggle('active', val === 'Basket');
         document.getElementById('btnPallet').classList.toggle('active', val === 'Pallet');
     }
-function setStatus(val) {
+
+    function setStatus(val) {
+        const prev = document.getElementById('statusSelect').value;
         document.getElementById('statusSelect').value = val;
-        document.getElementById('btnGood').classList.toggle('active', val === 'Good');
-        document.getElementById('btnBroken').classList.toggle('active', val === 'Hư hỏng');
-        document.getElementById('btnWrong').classList.toggle('active', val === 'Sai hàng');
-        document.getElementById('btnMissing').classList.toggle('active', val === 'Thiếu hàng');
+
+        const map = { btnGood:'Good', btnBroken:'Hư hỏng', btnWrong:'Sai hàng', btnMissing:'Thiếu hàng', btnExcess:'Dư hàng' };
+        for (const id in map) document.getElementById(id).classList.toggle('active', map[id] === val);
+
+        document.getElementById('wrongSkuWrap').style.display  = (val === 'Sai hàng') ? 'block' : 'none';
+        document.getElementById('excessBoxWrap').style.display = (val === 'Dư hàng')  ? 'block' : 'none';
+        if (val !== 'Sai hàng') document.getElementById('wrongSkuInput').value = '';
+        if (val !== 'Dư hàng')  document.getElementById('excessBoxInput').value = '';
+
+        if (val === 'Sai hàng') document.getElementById('wrongSkuInput').focus();
+        if (val === 'Dư hàng')  document.getElementById('excessBoxInput').focus();
+
+        // đổi vào/ra chế độ Dư thì query lại SKU đang nhập
+        if (lastSku && (prev === 'Dư hàng') !== (val === 'Dư hàng')) tim();
     }
+
     window.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
             e.preventDefault();
@@ -1267,6 +1504,8 @@ function setStatus(val) {
             <div class="guide-item"><b>4. Input SKU:</b> Nhập mã để kiểm tra tồn kho.</div>
             <div class="guide-item"><b>5. QUERY:</b> Nhập số lượng và Enter để đẩy vào Queue.</div>
             <div class="guide-item"><b>6. DONE:</b> Nhấn Execute Saving để lưu.</div>
+            <div class="guide-item"><b>7. SAI HÀNG:</b> Chọn Sai hàng rồi nhập SKU thực tế.</div>
+            <div class="guide-item"><b>8. DƯ HÀNG:</b> Chọn Dư hàng, nhập Box Dư rồi nhập SKU và số lượng.</div>
             <div class="guide-item" style="border-top: 1px groove #fff; padding-top: 10px; margin-top: 15px;">
                 <b>Phím tắt:</b><br>
                 - <b>Ctrl + Shift + Z:</b> Chuyển Basket/Pallet.<br>
