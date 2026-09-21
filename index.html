@@ -1113,6 +1113,7 @@
         renderQueue();
         document.getElementById('noteInput').value = "";
         document.getElementById('wrongSkuInput').value = "";
+        setStatus('Good'); // Tự động nhảy về Good sau khi đẩy vào Queue
         tim(); 
         
         if(currentMaxQty <= 0) {
@@ -1123,6 +1124,7 @@
         }
     }
 
+    // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
     // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
     function addExcessToQueue(qty) {
         const fromDate = document.getElementById('dateFrom').value;
@@ -1143,7 +1145,7 @@
             customQty: qty,
             inputDate: p2(now.getDate()) + '/' + p2(now.getMonth() + 1) + '/' + now.getFullYear(),
             inputTime: p2(now.getHours()) + ':' + p2(now.getMinutes()) + ':' + p2(now.getSeconds()),
-            note: document.getElementById('noteInput').value.trim(),
+            note: document.getElementById('noteInput').value.trim() || 'Dư hàng',
             status: 'Dư hàng',
             wrongSku: '',
             boxDu: document.getElementById('excessBoxInput').value.trim().toUpperCase()
@@ -1154,9 +1156,9 @@
         document.getElementById('bannerQty').style.display = "none";
         document.getElementById('res').style.display = "none";
         lastSku = "";
-        document.getElementById('skuInput').focus();   // Box Dư giữ nguyên để nhập tiếp SKU dư cùng box
+        setStatus('Good'); // Tự động nhảy về Good (đặt sau lastSku = "" để không query lại)
+        document.getElementById('skuInput').focus();
     }
-
     function renderQueue() {
         const qBody = document.getElementById('queueBody');
         const qCount = document.getElementById('queueCount');
@@ -1372,6 +1374,7 @@
         renderQueue();
         document.getElementById('noteInput').value = "";
         document.getElementById('wrongSkuInput').value = "";
+        setStatus('Good'); // Tự động nhảy về Good sau khi đẩy vào Queue
         
         if(currentMaxQty <= 0) {
             setTimeout(() => {
@@ -1382,7 +1385,6 @@
             }, 800);
         }
     }
-
     function setPacking(val) {
         const packSelect = document.getElementById('packingSelect');
         packSelect.value = val;
