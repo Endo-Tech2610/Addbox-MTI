@@ -96,7 +96,7 @@
     justify-content: flex-start;
 }
 .panel-bottom {
-    flex: 0 0 33.333%;
+    flex: 0 0 auto;
     min-height: 0;
     overflow: hidden;
     display: flex;
@@ -486,18 +486,7 @@
 
     <!-- KHUNG 1/3 DƯỚI: AutoBot + Status (Cố định) -->
 <div class="panel-bottom">
-    <div class="autobot-section">
-        <div style="font-weight: bold; color: var(--win-title);">AutoBot Integration</div>
-                <div style="display: flex; gap: 5px; flex-shrink: 0;">
-            <button onclick="launchAutoBot()" style="height: 30px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; flex: 2;">
-                <span style="color: blue;">▶</span> Start Autobot.exe
-            </button>
-            <button id="btnPauseBot" onclick="togglePauseBot()" disabled style="height: 30px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; flex: 1;">
-                <span id="pauseIcon" style="color: #808000;">⏸</span> <span id="pauseLabel">Pause</span>
-            </button>
-        </div>
-        <div id="botLogBox" class="bot-log-box"></div>
-    </div>
+   
     <div id="status-area">
             <div style="display: flex; align-items: center; gap: 5px;">
                 <button class="refresh-circle" id="refreshBtn" onclick="fetchData()" title="Refresh">R</button>
@@ -607,7 +596,7 @@
         document.getElementById('pauseLabel').textContent = paused ? 'Resume' : 'Pause';
     }
 
-    eel.expose(update_bot_status);
+    if (typeof eel !== 'undefined') eel.expose(update_bot_status);
     function update_bot_status(running) {
         if (!running) {
             document.getElementById('status').innerText = "AutoBot has stopped";
@@ -616,7 +605,7 @@
             document.getElementById('btnPauseBot').disabled = true;
         }
     }
-    eel.expose(append_bot_log);
+    if (typeof eel !== 'undefined') eel.expose(append_bot_log);
     function append_bot_log(msg) {
         const box = document.getElementById('botLogBox');
         if (!box) return;
