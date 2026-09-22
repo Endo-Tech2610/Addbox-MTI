@@ -451,11 +451,18 @@
                                 <label>SKU thực tế (hàng sai):</label>
                                 <input type="text" id="wrongSkuInput" autocomplete="off" placeholder="Nhập SKU / UPC thực tế...">
                             </div>
+                            <div id="wrongBoxWrap" style="display:none; margin-top:5px;">
+                                <label>Vị trí (PL) - Sai hàng:</label>
+                                <input type="text" id="wrongBoxInput" autocomplete="off" placeholder="Nhập PL đang chứa hàng sai...">
+                            </div>
+                            <div id="brokenBoxWrap" style="display:none; margin-top:5px;">
+                                <label>Vị trí (PL) - Hư hỏng:</label>
+                                <input type="text" id="brokenBoxInput" autocomplete="off" placeholder="Nhập PL đang chứa hàng hư hỏng...">
+                            </div>
                             <div id="excessBoxWrap" style="display:none; margin-top:5px;">
                                 <label>Box Dư:</label>
                                 <input type="text" id="excessBoxInput" autocomplete="off" placeholder="Nhập Box Dư...">
-                            </div>
-                        </div>
+                            </div>                        </div>
                     </div>
         </div>
 
@@ -493,10 +500,12 @@
                 <div id="status">Ready</div>
                 <div class="status-dot" id="statusDot" title="System Status"></div>
             </div>
-            <button class="btn-next-batch" id="btnNextBatch" onclick="handleNextBatch()">Next Batch >></button>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn-complete-ship" id="btnCompleteShip" onclick="completeShippingId()" title="Đẩy toàn bộ phần còn thiếu của Ship Order đang chọn vào Queue (Thiếu hàng)">Complete Shipping ID</button>
+                <button class="btn-next-batch" id="btnNextBatch" onclick="handleNextBatch()">Next Batch >></button>
+            </div>
         </div>
     </div>
-
 </div>
 </div>
 
@@ -877,6 +886,94 @@
     }
 }
 
+    async function completeShippingId() {
+        const staff = document.getElementById('staffInput').value.trim();
+        if (!staff) { triggerInputError('staffInput'); return; }
+        if (selectedShipOrders.length === 0) {
+            alert("Vui lòng chọn ít nhất 1 Ship Order Batch trước khi Complete Shipping ID.");
+            return;
+        }
+
+        const whFilter = document.getElementById('selWh').value.trim().toUpperCase();
+        const fromDate = document.getElementById('dateFrom').value;
+        const now = new Date();
+        const dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
+        const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+
+        let addedCount = 0;
+
+        selectedShipOrders.forEach(shipRaw => {
+            const ship = shipRaw.toString().toUpperCase().trim();
+
+            const shipRows = rawData.filter(i => {
+                const matchShip = i.ship && i.ship.toString().toUpperCase().trim() === ship;
+                const matchWh = (whFilter === "" || i.wh.toString().toUpperCase() === whFilter);
+                return matchShip && matchWh;
+            });
+
+            // Nhóm theo SKU + MTB
+            const groups = {};
+            shipRows.forEach(row => {
+                const sku = row.sku.toString().toUpperCase();
+                const mID = row.mtb.toString().toUpperCase();
+                const key = sku + '||' + mID;
+                groups[key] = (groups[key] || 0) + row.qty;
+            });
+
+            Object.keys(groups).forEach(key => {
+                const [sku, mID] = key.split('||');
+                const rawQty = groups[key];
+
+                const expQty = exportData
+                    .filter(e => e.sku === sku && e.mtb === mID && e.ship.toString().toUpperCase().includes(ship))
+                    .reduce((s, e) => s + e.qty, 0);
+
+                const queuedQty = queueList
+                    .filter(q => q.status !== 'Dư hàng' && q.sku === sku && q.mtb === mID && q.shipInfo.toString().toUpperCase().includes(ship))
+                    .reduce((s, q) => s + q.customQty, 0);
+
+                const remain = rawQty - expQty - queuedQty;
+                if (remain > 0.01) {
+                    const sizeEntry = sizeData.find(s => s.sku === sku);
+                    const zoneEntry = sizeEntry ? zoneData.find(z => z.type === sizeEntry.type) : null;
+
+                    queueList.push({
+                        staff: staff,
+                        dateStr: fromDate,
+                        sku: sku,
+                        batchID: currentBatchCode,
+                        packing: document.getElementById('packingSelect').value,
+                        shipInfo: ship,
+                        boxInfo: 'BOX_ISSUE',
+                        mtb: mID,
+                        inboundDate2: fromDate,
+                        zone: zoneEntry ? zoneEntry.zone : "---",
+                        wh: document.getElementById('selWh').value,
+                        customQty: Math.round(remain * 100) / 100,
+                        inputDate: dateStr,
+                        inputTime: timeStr,
+                        note: '',
+                        status: 'Thiếu hàng',
+                        wrongSku: '',
+                        wrongBox: '',
+                        boxDu: ''
+                    });
+                    addedCount++;
+                }
+            });
+        });
+
+        if (addedCount === 0) {
+            alert("Không có MTB/SKU nào còn thiếu cho Ship Order đã chọn.");
+            return;
+        }
+
+        renderQueue();
+        if (lastSku) tim();
+
+        if (!confirm(`Đã thêm ${addedCount} dòng Thiếu hàng vào Queue cho Ship Order đã chọn.\nLưu ngay vào Export Data MTIS?`)) return;
+        await saveAllQueue();
+    }
     async function handleNextBatch() {
         if (!confirm("Confirm move to DATA sheet and clear export list?")) return;
         
@@ -1047,8 +1144,16 @@
         const status = document.getElementById('statusSelect').value;
 
         if (isNaN(inputQty) || inputQty <= 0) return triggerInputError('qtyDisplay');
-        if (status === 'Sai hàng' && !document.getElementById('wrongSkuInput').value.trim())
-            return triggerInputError('wrongSkuInput');
+        if (status === 'Sai hàng') {
+            if (!document.getElementById('wrongSkuInput').value.trim())
+                return triggerInputError('wrongSkuInput');
+            if (!document.getElementById('wrongBoxInput').value.trim())
+                return triggerInputError('wrongBoxInput');
+        }
+        if (status === 'Hư hỏng') {
+            if (!document.getElementById('brokenBoxInput').value.trim())
+                return triggerInputError('brokenBoxInput');
+        }
         if (status === 'Dư hàng') {
             if (!document.getElementById('excessBoxInput').value.trim())
                 return triggerInputError('excessBoxInput');
@@ -1065,7 +1170,13 @@
         const m = upcData.find(u => u.upc3 === s || u.upc4 === s);
         return m ? m.sku.toUpperCase() : s;
     }
-
+    // Lấy giá trị PL (ghi vào cột P, giống Box Dư) cho Hư hỏng / Sai hàng
+    function getIssuePlValue() {
+        const status = document.getElementById('statusSelect').value;
+        if (status === 'Sai hàng') return document.getElementById('wrongBoxInput').value.trim().toUpperCase();
+        if (status === 'Hư hỏng') return document.getElementById('brokenBoxInput').value.trim().toUpperCase();
+        return '';
+    }
     function addToQueue() {
         let remainingToExport = parseFloat(document.getElementById('qtyDisplay').value);
         const fromDate = document.getElementById('dateFrom').value;
@@ -1078,6 +1189,8 @@
         const timeStr = now.getHours().toString().padStart(2, '0') + ':' +
                         now.getMinutes().toString().padStart(2, '0') + ':' +
                         now.getSeconds().toString().padStart(2, '0');
+
+        const plValue = getIssuePlValue();
 
         for (let mID in activeMtbBalances) {
             if (remainingToExport <= 0) break;
@@ -1104,7 +1217,7 @@
                     note: document.getElementById('noteInput').value.trim(),
                     status: document.getElementById('statusSelect').value,
                     wrongSku: getWrongSku(),
-                    boxDu: ''
+                    boxDu: plValue
                 });
                 remainingToExport -= take;
             }
@@ -1113,6 +1226,8 @@
         renderQueue();
         document.getElementById('noteInput').value = "";
         document.getElementById('wrongSkuInput').value = "";
+        document.getElementById('wrongBoxInput').value = "";
+        document.getElementById('brokenBoxInput').value = "";
         setStatus('Good'); // Tự động nhảy về Good sau khi đẩy vào Queue
         tim(); 
         
@@ -1123,7 +1238,6 @@
             document.getElementById('bannerQty').style.display = "none";
         }
     }
-
     // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
     // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
     function addExcessToQueue(qty) {
@@ -1189,7 +1303,8 @@
                         <span class="info-tag" style="font-weight:bold;">${item.status}</span>
                         ${item.status === 'Good' ? `<span class="info-tag">B:${item.boxInfo}</span>` : ''}
                         ${item.status === 'Dư hàng' ? `<span class="info-tag">BOX DƯ:${item.boxDu}</span>` : ''}
-                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}
+                        ${(item.status !== 'Dư hàng' && item.boxDu) ? `<span class="info-tag">PL:${item.boxDu}</span>` : ''}
+                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}
                         <span class="info-tag">M:${item.mtb}</span>
                         <span class="info-tag">P:${item.packing}</span>
                         ${item.note ? `<span class="info-tag">N:${item.note}</span>` : ''}
@@ -1260,13 +1375,12 @@
         queueList.forEach(item => {
             if (isGood(item)) {
                 item.boxInfo = item.shipInfo.split(',').map(s => shipToBox[s.trim()] || '---').join(', ');
-                item.boxDu = '';
             } else if (isIssue(item)) {
-                item.boxInfo = 'BOX_ISSUE';   // Apps Script thay bằng Box Issue lấy từ sheet Box DP
-                item.boxDu = '';
+                item.boxInfo = 'BOX_ISSUE';   // Apps Script thay bằng Box Issue lấy từ sheet Box DP, tuần tự xuống dưới
             } else {
                 item.boxInfo = '';            // Dư hàng: cột Box trống, dùng cột P (Box Dư)
             }
+            // Lưu ý: item.boxDu KHÔNG bị reset ở đây nữa - dùng để lưu giá trị PL cho Dư hàng/Sai hàng/Hư hỏng
         });
 
         // 3) Sắp xếp thành cụm: Good (theo box) → Issue (chung 1 box) → Dư (theo Box Dư)
@@ -1327,9 +1441,20 @@
             return;
         }
 
-        if (document.getElementById('statusSelect').value === 'Sai hàng' &&
-            !document.getElementById('wrongSkuInput').value.trim()) {
-            triggerInputError('wrongSkuInput');
+        const status = document.getElementById('statusSelect').value;
+
+        if (status === 'Sai hàng') {
+            if (!document.getElementById('wrongSkuInput').value.trim()) {
+                triggerInputError('wrongSkuInput');
+                return;
+            }
+            if (!document.getElementById('wrongBoxInput').value.trim()) {
+                triggerInputError('wrongBoxInput');
+                return;
+            }
+        }
+        if (status === 'Hư hỏng' && !document.getElementById('brokenBoxInput').value.trim()) {
+            triggerInputError('brokenBoxInput');
             return;
         }
 
@@ -1337,6 +1462,7 @@
         const now = new Date();
         const dateStr = now.getDate().toString().padStart(2, '0') + '/' + (now.getMonth() + 1).toString().padStart(2, '0') + '/' + now.getFullYear();
         const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+        const plValue = getIssuePlValue();
 
         queueList.push({
             staff: document.getElementById('staffInput').value.trim(),
@@ -1353,9 +1479,9 @@
             inputDate: dateStr, 
             inputTime: timeStr,
             note: document.getElementById('noteInput').value.trim(),
-            status: document.getElementById('statusSelect').value,
+            status: status,
             wrongSku: getWrongSku(),
-            boxDu: ''
+            boxDu: plValue
         });
 
         activeMtbBalances[mKey] -= inputQty;
@@ -1374,6 +1500,8 @@
         renderQueue();
         document.getElementById('noteInput').value = "";
         document.getElementById('wrongSkuInput').value = "";
+        document.getElementById('wrongBoxInput').value = "";
+        document.getElementById('brokenBoxInput').value = "";
         setStatus('Good'); // Tự động nhảy về Good sau khi đẩy vào Queue
         
         if(currentMaxQty <= 0) {
@@ -1384,8 +1512,7 @@
                 document.getElementById('bannerQty').style.display = "none";
             }, 800);
         }
-    }
-    function setPacking(val) {
+    }    function setPacking(val) {
         const packSelect = document.getElementById('packingSelect');
         packSelect.value = val;
         document.getElementById('btnBasket').classList.toggle('active', val === 'Basket');
@@ -1400,17 +1527,24 @@
         for (const id in map) document.getElementById(id).classList.toggle('active', map[id] === val);
 
         document.getElementById('wrongSkuWrap').style.display  = (val === 'Sai hàng') ? 'block' : 'none';
+        document.getElementById('wrongBoxWrap').style.display  = (val === 'Sai hàng') ? 'block' : 'none';
+        document.getElementById('brokenBoxWrap').style.display = (val === 'Hư hỏng')  ? 'block' : 'none';
         document.getElementById('excessBoxWrap').style.display = (val === 'Dư hàng')  ? 'block' : 'none';
-        if (val !== 'Sai hàng') document.getElementById('wrongSkuInput').value = '';
+
+        if (val !== 'Sai hàng') {
+            document.getElementById('wrongSkuInput').value = '';
+            document.getElementById('wrongBoxInput').value = '';
+        }
+        if (val !== 'Hư hỏng') document.getElementById('brokenBoxInput').value = '';
         if (val !== 'Dư hàng')  document.getElementById('excessBoxInput').value = '';
 
         if (val === 'Sai hàng') document.getElementById('wrongSkuInput').focus();
+        if (val === 'Hư hỏng')  document.getElementById('brokenBoxInput').focus();
         if (val === 'Dư hàng')  document.getElementById('excessBoxInput').focus();
 
         // đổi vào/ra chế độ Dư thì query lại SKU đang nhập
         if (lastSku && (prev === 'Dư hàng') !== (val === 'Dư hàng')) tim();
     }
-
     window.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
             e.preventDefault();
