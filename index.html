@@ -262,6 +262,15 @@
         }
         .excel-table td { padding: 4px; border-bottom: 1px solid #c0c0c0; border-right: 1px solid #c0c0c0; color: #000; }
         .qty-cell { font-weight: bold; text-align: center; color: var(--win-title); }
+
+        @keyframes queueRowIn {
+            0% { opacity: 0; transform: translateY(-8px); background: #cfe8ff; }
+            55% { opacity: 1; transform: translateY(0); background: #cfe8ff; }
+            100% { opacity: 1; transform: translateY(0); background: transparent; }
+        }
+        .row-enter {
+            animation: queueRowIn 1s cubic-bezier(0.22, 1, 0.36, 1);
+        }
         
         .wait-qty-input { width: 40px; height: 20px; text-align: center; font-weight: bold; padding: 0;}
         .btn-del { color: var(--warning); cursor: pointer; font-weight: bold; text-align: center; text-decoration: underline; }
@@ -493,7 +502,15 @@
 
     <!-- KHUNG 1/3 DƯỚI: AutoBot + Status (Cố định) -->
 <div class="panel-bottom">
-   
+
+    <div id="statusInfoBox" style="
+        flex: 1; min-height: 0; margin-bottom: 6px;
+        background: #ffffff; border: 1px inset #fff;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 10px; color: #000080; font-weight: bold;
+        overflow-y: auto; padding: 4px; white-space: pre-wrap;
+    ">NO BATCH SELECTED</div>
+
     <div id="status-area">
             <div style="display: flex; align-items: center; gap: 5px;">
                 <button class="refresh-circle" id="refreshBtn" onclick="fetchData()" title="Refresh">R</button>
@@ -727,6 +744,8 @@
     
     let rawData = [], exportData = [], onHandData = [], upcData = [], sizeData = [], zoneData = [], lastSku = "";
     let queueList = [];
+    let queueIdCounter = 0;
+    let lastAddedIds = [];
     let currentMaxQty = 0;
     let lastMtb = ""; 
     let activeMtbBalances = {}; 
@@ -768,6 +787,9 @@
     document.getElementById('dateFrom').value = today;
     document.getElementById('batchDisplay').innerText = currentBatchCode; 
     fetchData();
+
+    // Tự động refresh data mỗi 2 phút
+    setInterval(fetchData, 120000);
 
     // Gắn Enter cho Ship Order Batch
     document.getElementById('shipOrderInput').addEventListener('keydown', function(e) {
@@ -1191,6 +1213,7 @@
                         now.getSeconds().toString().padStart(2, '0');
 
         const plValue = getIssuePlValue();
+        const newIds = [];
 
         for (let mID in activeMtbBalances) {
             if (remainingToExport <= 0) break;
@@ -1199,7 +1222,9 @@
             let take = Math.min(remainingToExport, availableInThisMtb);
 
             if (take > 0) {
+                const newId = ++queueIdCounter;
                 queueList.push({
+                    _id: newId,
                     staff: document.getElementById('staffInput').value.trim(),
                     dateStr: fromDate,
                     sku: lastSku,
@@ -1219,12 +1244,13 @@
                     wrongSku: getWrongSku(),
                     boxDu: plValue
                 });
+                newIds.push(newId);
                 remainingToExport -= take;
             }
         }
 
-        renderQueue();
-        document.getElementById('noteInput').value = "";
+        lastAddedIds = newIds;
+        renderQueue();        document.getElementById('noteInput').value = "";
         document.getElementById('wrongSkuInput').value = "";
         document.getElementById('wrongBoxInput').value = "";
         document.getElementById('brokenBoxInput').value = "";
@@ -1244,7 +1270,9 @@
         const fromDate = document.getElementById('dateFrom').value;
         const now = new Date();
         const p2 = n => n.toString().padStart(2, '0');
+        const excessId = ++queueIdCounter;
         queueList.push({
+            _id: excessId,
             staff: document.getElementById('staffInput').value.trim(),
             dateStr: fromDate,
             sku: lastSku,
@@ -1264,8 +1292,8 @@
             wrongSku: '',
             boxDu: document.getElementById('excessBoxInput').value.trim().toUpperCase()
         });
-        renderQueue();
-        document.getElementById('noteInput').value = "";
+        lastAddedIds = [excessId];
+        renderQueue();        document.getElementById('noteInput').value = "";
         document.getElementById('skuInput').value = "";
         document.getElementById('bannerQty').style.display = "none";
         document.getElementById('res').style.display = "none";
@@ -1294,9 +1322,11 @@
             document.getElementById('queueShipCount').innerText = uniqueShips.size + " Batches";
         }
 
+        const idsToAnimate = lastAddedIds;
+        lastAddedIds = []; // đã "tiêu thụ" xong, tránh animation lặp lại ở lần render sau
+
         qBody.innerHTML = queueList.map((item, index) => `
-            <tr>
-                <td style="font-weight:bold;">${item.sku}</td>
+            <tr class="${idsToAnimate.includes(item._id) ? 'row-enter' : ''}">                <td style="font-weight:bold;">${item.sku}</td>
                 <td>
                     <div class="info-horizontal">
                         <span class="info-tag">S:${item.shipInfo}</span>
@@ -1464,7 +1494,9 @@
         const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
         const plValue = getIssuePlValue();
 
+        const specificId = ++queueIdCounter;
         queueList.push({
+            _id: specificId,
             staff: document.getElementById('staffInput').value.trim(),
             dateStr: fromDate,
             sku: lastSku,
@@ -1483,9 +1515,9 @@
             wrongSku: getWrongSku(),
             boxDu: plValue
         });
+        lastAddedIds = [specificId];
 
-        activeMtbBalances[mKey] -= inputQty;
-        currentMaxQty -= inputQty;
+        activeMtbBalances[mKey] -= inputQty;        currentMaxQty -= inputQty;
         document.getElementById('qtyDisplay').value = currentMaxQty.toFixed(0);
 
         if (activeMtbBalances[mKey] > 0) {
@@ -1560,8 +1592,12 @@
 
         const whFilter = document.getElementById('selWh').value.trim().toUpperCase();
 
+        const infoBox = document.getElementById('statusInfoBox');
+
         if (selectedShipOrders.length === 0) {
             dot.title = "NO BATCH SELECTED";
+            dot.style.background = "#808080";
+            if (infoBox) infoBox.innerText = "NO BATCH SELECTED";
             return;
         }
 
@@ -1594,7 +1630,7 @@
                 if (rQty - eQty > 0) remSkuCount++;
             });
 
-            tooltipContent += `[ SHIP: ${ship} ]\n` +
+            tooltipContent += `[ SHIP ODER: ${ship} ]\n` +
                               `RAW:   ${rawSkus.length} SKU | ${rawQtyTotal} Items\n` +
                               `SAVED: ${expSkusSet.size} SKU | ${expQtyTotal} Items\n` +
                               `REM:   ${remSkuCount} SKU | ${rawQtyTotal - expQtyTotal} Items`;
@@ -1603,6 +1639,7 @@
         });
         
         dot.title = tooltipContent;
+        if (infoBox) infoBox.innerText = tooltipContent;
     }
 
     function showGuide() {
