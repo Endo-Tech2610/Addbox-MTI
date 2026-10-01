@@ -446,7 +446,9 @@
             </div>
             <div>
                 <label>Staff Name:</label>
-                <input type="text" id="staffInput" autocomplete="off">
+                <select id="staffInput">
+                <option value="">-- Chọn nhân viên --</option>
+                </select>
             </div>
             <div style="grid-column: span 2;">
                 <div style="display: flex; gap: 8px;">
@@ -819,7 +821,29 @@
     const onHandUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20C,D,H,O,R&sheet=On%20hand`;
     const upcUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,G,H&sheet=UPC`;
     const sizeUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20A,C,F,G&sheet=Size`;
-    const issueUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20*&sheet=Export%20Data%20MTIS`;
+    const staffUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&tq=select%20G&sheet=Box%20DP`;
+
+async function fetchStaffList() {
+    const sel = document.getElementById('staffInput');
+    if (!sel) return;
+    try {
+        const r = await fetch(staffUrl + '&t=' + Date.now());
+        const t = await r.text();
+        const rows = JSON.parse(t.substring(47, t.length - 2)).table.rows;
+        const names = [...new Set(
+            rows.map(row => (row.c && row.c[0] && row.c[0].v !== null && row.c[0].v !== undefined)
+                ? row.c[0].v.toString().trim() : '')
+                .filter(n => n)
+        )];
+
+        const prev = sel.value; // giữ lại người đang chọn khi auto-refresh
+        sel.innerHTML = '<option value="">-- Chọn nhân viên --</option>' +
+            names.map(n => `<option value="${n}">${n}</option>`).join('');
+        if (prev && names.includes(prev)) sel.value = prev;
+    } catch (e) {
+        console.error("STAFF FETCH ERROR:", e);
+    }
+}
     
     let rawData = [], exportData = [], onHandData = [], upcData = [], sizeData = [], zoneData = [], lastSku = "";
     let queueList = [];
@@ -1072,6 +1096,7 @@
         whSelect.value = currentWh;
         
         document.getElementById('status').innerText = "Data Ready";
+        fetchStaffList();
         fetchIssueData();
         if(lastSku) tim(); 
     } catch(e) { 
