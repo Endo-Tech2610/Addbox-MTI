@@ -531,8 +531,7 @@
             <div style="display:flex; align-items:stretch;">
                 <div style="flex:0 0 75%; padding:5px; text-align:center; border-right:1px solid #c0c0c0;">
                     <div>BALANCE QUANTITY</div>
-                    <input type="text" inputmode="numeric" id="qtyDisplay" class="editable-qty" style="width:100%;" onkeydown="if(event.key==='Enter' || event.keyCode===13) { event.preventDefault(); handleQtyEnter(); }" autocomplete="off">
-                    <div>(Scan SKU again to confirm | F2 = edit qty)</div>
+                    <input type="text" inputmode="numeric" id="qtyDisplay" class="editable-qty" style="width:100%;" autocomplete="off">                    <div>(Scan SKU again to enter | F2 to edit)</div>
                 </div>
                 <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:4px;">
                     <div id="skuQr" title="QR của SKU" style="width:100%; display:flex; align-items:center; justify-content:center;"></div>
@@ -1385,7 +1384,7 @@ async function fetchStaffList() {
                     if (status === 'Hư hỏng') target = document.getElementById('brokenBoxInput');
                     else if (status === 'Sai hàng') target = document.getElementById('wrongSkuInput');
                     else target = document.getElementById('qtyDisplay');
-                    if (target) { focusSmooth(target); if (target.id === 'qtyDisplay') target.select(); }
+                    if (target) { focusSmooth(target); }
                 }, 100);
             }
         } else {
@@ -2140,6 +2139,62 @@ function handleQtyEnter() {
     handleSkuEnter();
 }
 // ================= HẾT KHỐI MỚI =================
+    // ===== Ô số lượng: ẩn ký tự súng scan, xử lý thẳng khi Enter =====
+(function () {
+    const q = document.getElementById('qtyDisplay');
+    if (!q) return;
+    let buf = "";
+    let timer = null;
+    const GAP = 80; // ms: quá khoảng này không có ký tự mới => coi là tay gõ
+
+    // Đưa ký tự đang giữ vào ô (thay phần đang bôi đen nếu có)
+    function flushToField() {
+        if (!buf) return;
+        const s = q.selectionStart, e = q.selectionEnd;
+        q.value = q.value.slice(0, s) + buf + q.value.slice(e);
+        const pos = s + buf.length;
+        q.setSelectionRange(pos, pos);
+        buf = "";
+        _qtyCommitted = q.value;
+    }
+
+    function processScan(s) {
+        // Số ngắn => người gõ số lượng nhanh rồi Enter
+        if (/^\d{1,6}$/.test(s)) {
+            buf = s; flushToField();
+            handleQtyEnter();
+            return;
+        }
+        // Scan lại đúng SKU đang xử lý => đẩy vào hàng chờ (giữ nguyên số lượng trong ô)
+        const hit = skuCandidates(lastSku).find(function (c) { return s === c || s.endsWith(c); });
+        if (hit) { validateAndAdd(); return; }
+        // Scan SKU khác => tra cứu SKU mới
+        const sk = document.getElementById('skuInput');
+        sk.value = s;
+        handleSkuEnter();
+    }
+
+    q.addEventListener('keydown', function (e) {
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(timer);
+            const scanned = buf.toUpperCase();
+            buf = "";
+            if (!scanned) { handleQtyEnter(); return; }
+            processScan(scanned);
+            return;
+        }
+
+        if (e.key.length === 1) {          // ký tự in được
+            e.preventDefault();            // không cho hiện vào ô
+            buf += e.key;
+            clearTimeout(timer);
+            timer = setTimeout(flushToField, GAP); // tay gõ chậm => hiện bình thường
+        }
+    });
+})();
     function showGuide() {
         document.getElementById('guideModal').style.display = 'flex';
     }
