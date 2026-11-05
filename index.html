@@ -70,10 +70,25 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
             min-width: 0;
         }
-        #issuePanel { flex: 0 0 30%; max-height: 100%; height: 100%; min-width: 0; }
+        /* Cột Issue (bên phải): chia 2 khung trên/dưới */
+        .issue-column {
+            flex: 0 0 30%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+        /* Mỗi khung trong 2 cột phải chiếm phần bằng nhau (Inventory 1/3, Queue có LOC 1/3, Queue chưa có LOC 1/3) */
+        .right-main > .data-section,
+        .issue-column > .data-section {
+            flex: 1 1 0;
+            max-height: none;
+            min-height: 0;
+        }
         #issueLocBox {
             flex: 0 0 auto; max-height: 50%; overflow-y: auto;
             background: var(--win-bg); border: 1px inset #fff;
@@ -177,7 +192,7 @@
             transition: box-shadow 0.25s ease, background-color 0.25s ease, border-color 0.25s ease; 
         }
         
-        .btn-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin: 10px 5px; }
+        .btn-row { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 10px 5px; }
         
         /* Nút bấm 3D */
         button, .help-btn { 
@@ -272,9 +287,22 @@
         .section-header { 
             background: linear-gradient(90deg, #808080, #c0c0c0); 
             padding: 3px 5px; color: #ffffff; font-weight: bold; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
-            flex: 0 0 auto;
+            flex: 0 0 auto; flex-wrap: wrap; gap: 4px;
         }
         .section-header span { color: #ffffff; }
+
+        /* Công cụ nhập Box + Done ở góc phải trên mỗi khung Export Queue */
+        .header-tools { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+        .box-tool { display: flex; align-items: center; gap: 4px; }
+        .box-mini-input { width: 130px; height: 20px; }
+        .box-mini-list {
+            flex: 0 0 90px; width: 90px; height: 20px; background: #ffffff; border: 1px inset #fff;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;
+        }
+        .section-header .box-mini-list > span { color: #000; font-weight: normal; }
+        .section-header .ship-tag span { color: red; }
+        .box-mini-list .ship-dropdown { width: 170px; right: 0; left: auto; top: 21px; max-height: 140px; }
+        .btn-done-mini { height: 20px; padding: 0 12px; }
         
         .scroll-container { flex: 1 1 auto; min-height: 0; overflow-y: auto; background: #ffffff; border: 1px inset #fff; position: relative; }
         
@@ -300,6 +328,11 @@
             animation: queueRowIn 1s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
+        /* Export Queue: dòng SKU đã có location → tô xanh lá */
+        tr.row-loc { background: #99e699; }
+        /* Export Queue - No LOC: SKU chưa có location → tô vàng nhạt */
+        tr.row-noloc { background: #fff6b3; }
+
         /* Nhấp nháy liên tục màu đỏ nhạt cho dòng có zone = AV trong Inventory Details */
         @keyframes zoneAvBlink {
             0%, 100% { background-color: #ffffff; }
@@ -308,7 +341,30 @@
         .zone-av-blink td {
             animation: zoneAvBlink 1s ease-in-out infinite;
         }
+
+        /* Nhấp nháy liên tục màu xanh dương cho location AT / A1T / BT trong Inventory Details */
+        @keyframes zoneAtBlink {
+            0%, 100% { background-color: #ffffff; }
+            50% { background-color: #99ccff; }
+        }
+        .zone-at-blink td {
+            animation: zoneAtBlink 1s ease-in-out infinite;
+        }
         
+        /* Chớp cả khung Export Queue 2 lần khi scan SKU: báo cho người thao tác biết bỏ vào rổ nào */
+        .data-section { position: relative; }
+        @keyframes frameFlash {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+        .data-section.flash-loc::after,
+        .data-section.flash-noloc::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 50;
+            animation: frameFlash 0.4s ease-in-out 2;
+        }
+        .data-section.flash-loc::after   { background: rgba(0, 200, 0, 0.55); }  /* có location → xanh lá */
+        .data-section.flash-noloc::after { background: rgba(255, 230, 80, 0.6); } /* chưa có location → vàng nhạt */
+
         .wait-qty-input { width: 40px; height: 20px; text-align: center; font-weight: bold; padding: 0;}
         .btn-del { color: var(--warning); cursor: pointer; font-weight: bold; text-align: center; text-decoration: underline; }
         .empty-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #808080; }
@@ -451,38 +507,17 @@
                 </select>
             </div>
             <div style="grid-column: span 2;">
-                <div style="display: flex; gap: 8px;">
-                    <div style="flex: 0 0 49%;">
-                                <label>Box ID (Input after queuing):</label>
-                                <div class="ship-row" style="margin-bottom: 0;">
-                                    <div class="ship-input-wrap">
-                                    <input type="text" id="boxInput" placeholder="Input Box & Enter..."autocomplete="off">                                    
-                                    </div>
-                                    <div class="ship-list-wrap">
-                                        <span id="boxCountLabel">0 SELECTED</span>
-                                        <div class="ship-dropdown" id="boxDropdownContent">
-                                            <div style="color: #808080; text-align: center;">No boxes</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                    <div style="flex: 1;">
-                        <label>Current Batch:</label>
-                        <div id="batchDisplay" style="height:22px; background:#fff; border:1px inset #fff; display:flex; align-items:center; padding:0 4px; font-weight:bold;">
-                            ---
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div style="grid-column: span 2;">
                         <div style="display: flex; gap: 8px;">
                             <div style="flex: 1;">
                                 <label>Input SKU / UPC:</label>
 <input type="text" id="skuInput" onkeydown="if(event.key==='Enter' || event.keyCode===13) { event.preventDefault(); handleSkuEnter(); }" autocomplete="off">                            </div>
                             <div style="flex: 1;">
-                                <label>Note:</label>
-                                <input type="text" id="noteInput" autocomplete="off">
+                                <label>Current Batch:</label>
+                                <div id="batchDisplay" style="height:22px; background:#fff; border:1px inset #fff; display:flex; align-items:center; padding:0 4px; font-weight:bold;">
+                                    ---
+                                </div>
                             </div>
+                            <input type="hidden" id="noteInput" value="">
                         </div>
                         <div style="margin-top: 5px;">
                             <label>Status:</label>
@@ -520,8 +555,7 @@
         </div>
 
         <div class="btn-row">
-            <button class="btn-search" onclick="tim()">Query</button>
-            <button class="btn-done" onclick="saveAllQueue()" id="btnSave">Done</button>
+            <button class="btn-search" onclick="_flashOnNextTim = true; tim()">Query</button>
         </div>
     </div>
 
@@ -580,6 +614,8 @@
 
 <div class="right-panel">
 <div class="right-main">
+
+    <!-- KHUNG 1/3: Inventory Details -->
     <div class="data-section">
         <div class="section-header">
             <span>Inventory Details</span>
@@ -601,12 +637,23 @@
         </div>
     </div>
 
-    <div class="data-section">
+    <!-- KHUNG 1/3: Export Queue - SKU ĐÃ CÓ LOCATION (tô xanh lá) -->
+    <div class="data-section" id="queuePanel_LOC">
         <div class="section-header">
-            <span>Export Queue</span>
-            <div style="display: flex; gap: 5px;">
-                <span id="queueShipCount" class="count-badge">0 Batches</span>
-                <span id="queueCount" class="count-badge">0 SKU</span>
+            <span>Export Queue - Has LOC</span>
+            <div class="header-tools">
+                <span id="queueShipCount_LOC" class="count-badge">0 Batches</span>
+                <span id="queueCount_LOC" class="count-badge">0 SKU</span>
+                <div class="box-tool">
+                    <input type="text" id="boxInput_LOC" class="box-mini-input" placeholder="Box ID & Enter..." autocomplete="off">
+                    <div class="ship-list-wrap box-mini-list">
+                        <span id="boxCountLabel_LOC">0 SELECTED</span>
+                        <div class="ship-dropdown" id="boxDropdown_LOC">
+                            <div style="color: #808080; text-align: center;">No boxes</div>
+                        </div>
+                    </div>
+                    <button class="btn-done btn-done-mini" id="btnDone_LOC" onclick="saveQueueGroup('LOC')">Done</button>
+                </div>
             </div>
         </div>
         <div class="scroll-container">
@@ -619,35 +666,108 @@
                         <th style="width: 10%; text-align: center;">Action</th>
                     </tr>
                 </thead>
-                <tbody id="queueBody"></tbody>
+                <tbody id="queueBody_LOC"></tbody>
             </table>
-            <div id="emptyQueue" class="empty-state">Queue is empty.</div>
+            <div id="emptyQueue_LOC" class="empty-state">Queue is empty.</div>
+        </div>
+    </div>
+
+    <!-- KHUNG 1/3: Export Queue - SKU CHƯA CÓ LOCATION (không tô màu) -->
+    <div class="data-section" id="queuePanel_NOLOC">
+        <div class="section-header">
+            <span>Export Queue - No LOC</span>
+            <div class="header-tools">
+                <span id="queueShipCount_NOLOC" class="count-badge">0 Batches</span>
+                <span id="queueCount_NOLOC" class="count-badge">0 SKU</span>
+                <div class="box-tool">
+                    <input type="text" id="boxInput_NOLOC" class="box-mini-input" placeholder="Box ID & Enter..." autocomplete="off">
+                    <div class="ship-list-wrap box-mini-list">
+                        <span id="boxCountLabel_NOLOC">0 SELECTED</span>
+                        <div class="ship-dropdown" id="boxDropdown_NOLOC">
+                            <div style="color: #808080; text-align: center;">No boxes</div>
+                        </div>
+                    </div>
+                    <button class="btn-done btn-done-mini" id="btnDone_NOLOC" onclick="saveQueueGroup('NOLOC')">Done</button>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-container">
+            <table class="excel-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">SKU ID</th>
+                        <th style="width: 50%;">Information</th>
+                        <th style="width: 15%; text-align: center;">Qty</th>
+                        <th style="width: 10%; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="queueBody_NOLOC"></tbody>
+            </table>
+            <div id="emptyQueue_NOLOC" class="empty-state">Queue is empty.</div>
         </div>
     </div>
 </div>
 
-    <div class="data-section" id="issuePanel">
-        <div class="section-header">
-            <span>Issue Data</span>
-            <span id="issueCount" class="count-badge">0 SKU</span>
+    <!-- CỘT PHẢI: chia 2 khung - Issue Data (trên) + Export Queue XS (dưới) -->
+    <div class="issue-column">
+        <div class="data-section" id="issuePanel">
+            <div class="section-header">
+                <span>Issue Data</span>
+                <span id="issueCount" class="count-badge">0 SKU</span>
+            </div>
+            <div id="issueLocBox">
+                <div class="loc-title">Devide Issue:</div>
+                <div id="issueLocList" class="info-horizontal"><span style="color:#808080;">---</span></div>
+                <div id="issueQrList" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;"></div>
+            </div>
+            <div class="scroll-container">
+                <table class="excel-table" id="issueTable" style="display:none">
+                    <thead>
+                        <tr>
+                            <th style="width: 38%;">SKU ID</th>
+                            <th style="width: 42%;">MTB</th>
+                            <th style="width: 20%; text-align: center;">Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody id="issueBody"></tbody>
+                </table>
+                <div id="issueEmpty" class="empty-state">NO BATCH SELECTED</div>
+            </div>
         </div>
-        <div id="issueLocBox">
-            <div class="loc-title">Devide Issue:</div>
-            <div id="issueLocList" class="info-horizontal"><span style="color:#808080;">---</span></div>
-            <div id="issueQrList" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;"></div>
-        </div>
-        <div class="scroll-container">
-            <table class="excel-table" id="issueTable" style="display:none">
-                <thead>
-                    <tr>
-                        <th style="width: 38%;">SKU ID</th>
-                        <th style="width: 42%;">MTB</th>
-                        <th style="width: 20%; text-align: center;">Qty</th>
-                    </tr>
-                </thead>
-                <tbody id="issueBody"></tbody>
-            </table>
-            <div id="issueEmpty" class="empty-state">NO BATCH SELECTED</div>
+
+        <!-- Export Queue - hàng XS (logic giống Export Queue chưa có location; data XS sẽ cập nhật sau) -->
+        <div class="data-section" id="queuePanel_XS">
+            <div class="section-header">
+                <span>Export Queue - XS</span>
+                <div class="header-tools">
+                    <span id="queueShipCount_XS" class="count-badge">0 Batches</span>
+                    <span id="queueCount_XS" class="count-badge">0 SKU</span>
+                    <div class="box-tool">
+                        <input type="text" id="boxInput_XS" class="box-mini-input" placeholder="Box ID & Enter..." autocomplete="off">
+                        <div class="ship-list-wrap box-mini-list">
+                            <span id="boxCountLabel_XS">0 SELECTED</span>
+                            <div class="ship-dropdown" id="boxDropdown_XS">
+                                <div style="color: #808080; text-align: center;">No boxes</div>
+                            </div>
+                        </div>
+                        <button class="btn-done btn-done-mini" id="btnDone_XS" onclick="saveQueueGroup('XS')">Done</button>
+                    </div>
+                </div>
+            </div>
+            <div class="scroll-container">
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">SKU ID</th>
+                            <th style="width: 50%;">Information</th>
+                            <th style="width: 15%; text-align: center;">Qty</th>
+                            <th style="width: 10%; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queueBody_XS"></tbody>
+                </table>
+                <div id="emptyQueue_XS" class="empty-state">Queue is empty.</div>
+            </div>
         </div>
     </div>
 </div>
@@ -756,33 +876,63 @@
         whList.innerHTML = matchedWhs.map(w => `<option value="${w}">`).join('');
     }
     let selectedShipOrders = [];
-    let selectedBoxes = [];
 
-    function addBox() {
-        const input = document.getElementById('boxInput');
+    // ===== 3 KHUNG EXPORT QUEUE =====
+    // LOC   : SKU đã có location ở Inventory Details (tô xanh lá)
+    // NOLOC : SKU chưa có location (không tô màu)
+    // XS    : hàng XS (data sẽ cập nhật sau - xem isXsSku bên dưới)
+    const QUEUE_GROUPS = ['LOC', 'NOLOC', 'XS'];
+    // Box ID được nhập riêng cho từng khung
+    let groupBoxes = { LOC: [], NOLOC: [], XS: [] };
+
+    // Location nhấp nháy xanh dương trong Inventory Details
+    const BLUE_BLINK_LOCS = ['AT', 'A1T', 'BT'];
+
+    // TODO: cập nhật điều kiện nhận biết hàng XS khi có data (hiện chưa có → luôn false).
+    // Khi trả về true, dòng sẽ tự rơi vào khung Export Queue - XS.
+    function isXsSku(sku) {
+        return false;
+    }
+
+    // SKU đã có location ở Inventory Details (onHandData đã lọc theo ALLOWED_ZONES)
+    function hasLocation(sku) {
+        const s = (sku || '').toString().trim().toUpperCase();
+        if (!s) return false;
+        return onHandData.some(h => h.skuId.toUpperCase() === s && h.loc && h.loc.toString().trim() !== '---');
+    }
+
+    // Xác định dòng sẽ vào khung queue nào
+    function getQueueGroup(sku) {
+        if (isXsSku(sku)) return 'XS';
+        return hasLocation(sku) ? 'LOC' : 'NOLOC';
+    }
+
+    function addBox(group) {
+        const input = document.getElementById('boxInput_' + group);
         const val = input.value.trim().toUpperCase(); 
-        if (val && !selectedBoxes.includes(val)) {
-            selectedBoxes.push(val);
+        if (val && !groupBoxes[group].includes(val)) {
+            groupBoxes[group].push(val);
             input.value = ""; 
-            updateBoxListUI();
+            updateBoxListUI(group);
         }
     }
 
-    function removeBox(box) {
-        selectedBoxes = selectedBoxes.filter(b => b !== box);
-        updateBoxListUI();
+    function removeBox(group, box) {
+        groupBoxes[group] = groupBoxes[group].filter(b => b !== box);
+        updateBoxListUI(group);
     }
 
-    function updateBoxListUI() {
-        const dropdown = document.getElementById('boxDropdownContent');
-        const label = document.getElementById('boxCountLabel');
-        label.innerText = selectedBoxes.length + " SELECTED";
+    function updateBoxListUI(group) {
+        const dropdown = document.getElementById('boxDropdown_' + group);
+        const label = document.getElementById('boxCountLabel_' + group);
+        const boxes = groupBoxes[group];
+        label.innerText = boxes.length + " SELECTED";
         
-        if (selectedBoxes.length === 0) {
+        if (boxes.length === 0) {
             dropdown.innerHTML = '<div style="color: #808080; text-align: center;">No boxes</div>';
         } else {
-            dropdown.innerHTML = selectedBoxes.map(b => `
-                <div class="ship-tag">${b}<span onclick="removeBox('${b}')">X</span></div>
+            dropdown.innerHTML = boxes.map(b => `
+                <div class="ship-tag">${b}<span onclick="removeBox('${group}','${b}')">X</span></div>
             `).join('');
         }
     }
@@ -968,27 +1118,6 @@ async function fetchStaffList() {
 
     let currentBatchCode = generateBatchCode();
 
-    function lockBoxId() {
-        const val = document.getElementById('boxInput').value.trim();
-        if (!val) { triggerInputError('boxInput'); return; }
-        
-        lockedBoxId = val;
-        
-        document.getElementById('boxInput').style.display = "none";
-        document.getElementById('boxLockedLabel').innerText = val;
-        document.getElementById('boxLockedBadge').style.display = "flex";
-        document.getElementById('batchDisplay').innerText = currentBatchCode; 
-        focusSmooth(document.getElementById('skuInput'));
-    }
-
-    function unlockBoxId() {
-        lockedBoxId = "";
-        document.getElementById('boxInput').value = ""; 
-        document.getElementById('boxInput').style.display = "";
-        document.getElementById('boxLockedBadge').style.display = "none";
-        focusSmooth(document.getElementById('boxInput'));
-    }
-
     window.onload = () => {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('dateFrom').value = today;
@@ -1006,12 +1135,14 @@ async function fetchStaffList() {
         }
     });
 
-    // Gắn Enter cho Box ID
-    document.getElementById('boxInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addBox();
-        }
+    // Gắn Enter cho Box ID của từng khung Export Queue
+    QUEUE_GROUPS.forEach(function(g) {
+        document.getElementById('boxInput_' + g).addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addBox(g);
+            }
+        });
     });
 };
 
@@ -1080,7 +1211,7 @@ async function fetchStaffList() {
             })
             .filter(e => e.sku && e.status !== 'Dư hàng');
         
-        const ALLOWED_ZONES = ['A1', 'AT', 'B', 'BT', 'C','AV','NRP','IMIB','MI'];
+        const ALLOWED_ZONES = ['A1', 'AT', 'A1T', 'B', 'BT', 'C','AV','NRP','IMIB','MI'];
         onHandData = JSON.parse(tHand.substring(47, tHand.length - 2)).table.rows
             .map(row => ({
                 skuId: row.c[0]?.v?.toString().trim() || '', 
@@ -1144,6 +1275,7 @@ async function fetchStaffList() {
         const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
 
         let addedCount = 0;
+        const touchedGroups = new Set();
 
         selectedShipOrders.forEach(shipRaw => {
             const ship = shipRaw.toString().toUpperCase().trim();
@@ -1179,8 +1311,12 @@ async function fetchStaffList() {
                 if (remain > 0.01) {
                     const sizeEntry = sizeData.find(s => s.sku === sku);
                     const zoneEntry = sizeEntry ? zoneData.find(z => z.type === sizeEntry.type) : null;
+                    const grp = getQueueGroup(sku);
+                    touchedGroups.add(grp);
 
                     queueList.push({
+                        _id: ++queueIdCounter,
+                        group: grp,
                         staff: staff,
                         dateStr: fromDate,
                         sku: sku,
@@ -1215,7 +1351,10 @@ async function fetchStaffList() {
         if (lastSku) tim();
 
         if (!confirm(`Đã thêm ${addedCount} dòng Thiếu hàng vào Queue cho Ship Order đã chọn.\nLưu ngay vào Export Data MTIS?`)) return;
-        await saveAllQueue();
+        // Lưu lần lượt từng khung vừa được thêm dòng (mỗi lần Done = 1 Current Batch mới)
+        for (const g of QUEUE_GROUPS) {
+            if (touchedGroups.has(g)) await saveQueueGroup(g);
+        }
     }
     async function handleNextBatch() {
         if (!confirm("Confirm move to DATA sheet and clear export list?")) return;
@@ -1268,7 +1407,32 @@ async function fetchStaffList() {
             all: uniq(rows)
         };
     }
+
+    // Class hiệu ứng nhấp nháy cho từng dòng Inventory Details
+    function onHandRowClass(item) {
+        const zone = (item.zone || '').toString().trim().toUpperCase();
+        const loc = (item.loc || '').toString().trim().toUpperCase();
+        if (['AV', 'IMIB', 'NRP', 'MI'].includes(zone)) return 'zone-av-blink';          // đỏ nhạt
+        if (BLUE_BLINK_LOCS.includes(zone) || BLUE_BLINK_LOCS.includes(loc)) return 'zone-at-blink'; // xanh dương
+        return '';
+    }
+
+    // Chỉ chớp khung khi người dùng thật sự scan/Query SKU (không chớp khi auto-refresh hay sửa số lượng)
+    let _flashOnNextTim = false;
+
+    function flashQueueFrame(group) {
+        const cls = group === 'LOC' ? 'flash-loc' : (group === 'NOLOC' ? 'flash-noloc' : '');
+        const el = document.getElementById('queuePanel_' + group);
+        if (!cls || !el) return;
+        el.classList.remove('flash-loc', 'flash-noloc');
+        void el.offsetWidth; // reset animation
+        el.classList.add(cls);
+        setTimeout(() => el.classList.remove(cls), 900);
+    }
+
     async function tim() {
+        const doFlash = _flashOnNextTim;
+        _flashOnNextTim = false;
         const skuInput = document.getElementById('skuInput');
         const inputVal = skuInput.value.trim();
         const staff = document.getElementById('staffInput').value.trim();
@@ -1403,13 +1567,16 @@ async function fetchStaffList() {
         if(onHandRecords.length > 0) {
             msg.style.display = "none"; table.style.display = "table";
             body.innerHTML = onHandRecords.map(item => `
-                <tr class="${['AV','IMIB','NRP','MI'].includes(item.zone) ? 'zone-av-blink' : ''}"><td>${item.skuId}</td><td>${item.name}</td><td class="qty-cell">${item.qty}</td><td class="loc-cell">${item.loc}</td></tr>
+                <tr class="${onHandRowClass(item)}"><td>${item.skuId}</td><td>${item.name}</td><td class="qty-cell">${item.qty}</td><td class="loc-cell">${item.loc}</td></tr>
             `).join('');
             if (locCountEl) locCountEl.innerText = onHandRecords.length + " LOCs";
         } else {
             table.style.display = "none"; msg.style.display = "flex";
             if (locCountEl) locCountEl.innerText = "0 LOCs";
         }
+
+        // SKU tra cứu thành công → chớp khung rổ tương ứng (có location: xanh lá, chưa có: xám)
+        if (doFlash && lastSku) flashQueueFrame(getQueueGroup(lastSku));
     }
 
     function validateAndAdd() {
@@ -1465,6 +1632,7 @@ async function fetchStaffList() {
 
         const plValue = getIssuePlValue();
         const newIds = [];
+        const grp = getQueueGroup(lastSku);
 
         for (let mID in activeMtbBalances) {
             if (remainingToExport <= 0) break;
@@ -1476,6 +1644,7 @@ async function fetchStaffList() {
                 const newId = ++queueIdCounter;
                 queueList.push({
                     _id: newId,
+                    group: grp,
                     staff: document.getElementById('staffInput').value.trim(),
                     dateStr: fromDate,
                     sku: lastSku,
@@ -1502,21 +1671,20 @@ async function fetchStaffList() {
 
         lastAddedIds = newIds;
         if (newIds.length) playSuccessSound();
-        renderQueue();        document.getElementById('noteInput').value = "";
+        renderQueue();
+        document.getElementById('noteInput').value = "";
         document.getElementById('wrongSkuInput').value = "";
         document.getElementById('wrongBoxInput').value = "";
         document.getElementById('brokenBoxInput').value = "";
         setStatus('Good'); // Tự động nhảy về Good sau khi đẩy vào Queue
-        tim(); 
-        
-        if(currentMaxQty <= 0) {
-            document.getElementById('skuInput').value = "";
-            focusSmooth(document.getElementById('skuInput'));
-            document.getElementById('res').style.display = "none";
-            document.getElementById('bannerQty').style.display = "none";
-        }
+
+        // Dọn sạch như nhau cho cả đủ và thiếu số lượng
+        document.getElementById('skuInput').value = "";
+        lastSku = "";
+        document.getElementById('res').style.display = "none";
+        document.getElementById('bannerQty').style.display = "none";
+        focusSmooth(document.getElementById('skuInput'));
     }
-    // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
     // Dư hàng: 1 dòng, MTB = '---', không trừ tồn
     function addExcessToQueue(qty) {
         const fromDate = document.getElementById('dateFrom').value;
@@ -1525,6 +1693,7 @@ async function fetchStaffList() {
         const excessId = ++queueIdCounter;
         queueList.push({
             _id: excessId,
+            group: getQueueGroup(lastSku),
             staff: document.getElementById('staffInput').value.trim(),
             dateStr: fromDate,
             sku: lastSku,
@@ -1555,38 +1724,46 @@ async function fetchStaffList() {
         setStatus('Good'); // Tự động nhảy về Good (đặt sau lastSku = "" để không query lại)
         focusSmooth(document.getElementById('skuInput'));
     }
-    function renderQueue() {
-        const qBody = document.getElementById('queueBody');
-        const qCount = document.getElementById('queueCount');
-        const qEmpty = document.getElementById('emptyQueue');
 
-        if(queueList.length === 0) {
+    // Vẽ cả 3 khung Export Queue
+    function renderQueue() {
+        const idsToAnimate = lastAddedIds;
+        lastAddedIds = []; // đã "tiêu thụ" xong, tránh animation lặp lại ở lần render sau
+        QUEUE_GROUPS.forEach(g => renderQueueGroup(g, idsToAnimate));
+    }
+
+    function renderQueueGroup(group, idsToAnimate) {
+        const qBody = document.getElementById('queueBody_' + group);
+        const qCount = document.getElementById('queueCount_' + group);
+        const qShipCount = document.getElementById('queueShipCount_' + group);
+        const qEmpty = document.getElementById('emptyQueue_' + group);
+
+        // Giữ index gốc trong queueList để update/xóa chính xác, hiển thị dòng mới nhất lên trên cùng
+        const entries = queueList
+            .map((item, index) => ({ item, index }))
+            .filter(e => e.item.group === group)
+            .reverse();
+
+        if (entries.length === 0) {
             qBody.innerHTML = "";
             qEmpty.style.display = "flex";
             qCount.innerText = "0 SKU";
+            qShipCount.innerText = "0 Batches";
             return;
         }
 
         qEmpty.style.display = "none";
-        const uniqueSKUs = new Set(queueList.map(item => item.sku));
-        qCount.innerText = uniqueSKUs.size + " SKU";
-        
-        const uniqueShips = new Set(queueList.map(item => item.shipInfo));
-        if(document.getElementById('queueShipCount')) {
-            document.getElementById('queueShipCount').innerText = uniqueShips.size + " Batches";
-        }
+        qCount.innerText = new Set(entries.map(e => e.item.sku)).size + " SKU";
+        qShipCount.innerText = new Set(entries.map(e => e.item.shipInfo)).size + " Batches";
 
-        const idsToAnimate = lastAddedIds;
-        lastAddedIds = []; // đã "tiêu thụ" xong, tránh animation lặp lại ở lần render sau
-
-        // Hiển thị data mới nhất lên trên cùng: duyệt theo thứ tự index đảo ngược,
-        // nhưng vẫn giữ đúng index gốc trong queueList để update/xóa hoạt động chính xác.
-        const displayOrder = queueList.map((_, idx) => idx).reverse();
-
-        qBody.innerHTML = displayOrder.map(index => {
-            const item = queueList[index];
+        qBody.innerHTML = entries.map(({ item, index }) => {
+            const cls = [];
+            if (group === 'LOC') cls.push('row-loc'); // SKU đã có location → tô xanh lá
+            if (group === 'NOLOC') cls.push('row-noloc'); // SKU chưa có location → tô vàng nhạt
+            if (idsToAnimate.includes(item._id)) cls.push('row-enter');
             return `
-            <tr class="${idsToAnimate.includes(item._id) ? 'row-enter' : ''}">                <td style="font-weight:bold;">${item.sku}</td>
+            <tr class="${cls.join(' ')}">
+                <td style="font-weight:bold;">${item.sku}</td>
                 <td>
                     <div class="info-horizontal">
                         <span class="info-tag">S:${item.shipInfo}</span>
@@ -1594,7 +1771,7 @@ async function fetchStaffList() {
                         ${item.status === 'Good' ? `<span class="info-tag">B:${item.boxInfo}</span>` : ''}
                         ${item.status === 'Dư hàng' ? `<span class="info-tag">BOX DƯ:${item.boxDu}</span>` : ''}
                         ${(item.status !== 'Dư hàng' && item.boxDu) ? `<span class="info-tag">PL:${item.boxDu}</span>` : ''}
-                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}
+                        ${item.wrongSku ? `<span class="info-tag">THỰC TẾ:${item.wrongSku}</span>` : ''}
                         <span class="info-tag">M:${item.mtb}</span>
                         <span class="info-tag">P:${item.packing}</span>
                         ${item.note ? `<span class="info-tag">N:${item.note}</span>` : ''}
@@ -1635,35 +1812,45 @@ async function fetchStaffList() {
         }
     }
 
-    function removeFromQueue(index) {
+        function removeFromQueue(index) {
         queueList.splice(index, 1);
         renderQueue();
-        tim();
+        // Làm lại từ đầu: phải scan lần 1 rồi mới scan lần 2
+        document.getElementById('skuInput').value = "";
+        lastSku = "";
+        document.getElementById('res').style.display = "none";
+        document.getElementById('bannerQty').style.display = "none";
+        focusSmooth(document.getElementById('skuInput'));
     }
 
-    async function saveAllQueue() {
-        if(queueList.length === 0) return; 
+    // Done của từng khung: chỉ lưu các dòng thuộc khung đó, dùng Box ID của khung đó,
+    // sau đó Current Batch tự nhảy sang mã mới.
+    async function saveQueueGroup(group) {
+        const items = queueList.filter(q => q.group === group);
+        if (items.length === 0) return false;
 
+        const boxes = groupBoxes[group];
         const isGood   = q => q.status === 'Good';
         const isExcess = q => q.status === 'Dư hàng';
         const isIssue  = q => !isGood(q) && !isExcess(q);   // Hư hỏng / Sai hàng / Thiếu hàng
         
-        // 1) Nhóm Good: map 1-1 Ship Order → Box ID (chỉ tính các dòng Good)
+        // 1) Nhóm Good: map 1-1 Ship Order → Box ID (chỉ tính các dòng Good của khung này)
         const goodShips = [];
-        queueList.filter(isGood).forEach(item => {
+        items.filter(isGood).forEach(item => {
             if (item.shipInfo && item.shipInfo !== '---') {
                 item.shipInfo.split(',').map(s => s.trim()).forEach(s => { if (!goodShips.includes(s)) goodShips.push(s); });
             }
         });
-        if (goodShips.length > 0 && selectedBoxes.length < goodShips.length) {
-            alert("Lỗi: Số lượng Box ID (" + selectedBoxes.length + ") đang ít hơn số lượng Ship Order Batch của hàng Good (" + goodShips.length + ") trong Queue. Cần nhập ít nhất " + goodShips.length + " Box ID!");
-            return;
+        if (goodShips.length > 0 && boxes.length < goodShips.length) {
+            alert("Lỗi: Số lượng Box ID (" + boxes.length + ") đang ít hơn số lượng Ship Order Batch của hàng Good (" + goodShips.length + ") trong khung này. Cần nhập ít nhất " + goodShips.length + " Box ID!");
+            focusSmooth(document.getElementById('boxInput_' + group));
+            return false;
         }
         const shipToBox = {};
-        goodShips.forEach((s, i) => { shipToBox[s] = selectedBoxes[i]; });
+        goodShips.forEach((s, i) => { shipToBox[s] = boxes[i]; });
 
         // 2) Gán box theo nhóm
-        queueList.forEach(item => {
+        items.forEach(item => {
             if (isGood(item)) {
                 item.boxInfo = item.shipInfo.split(',').map(s => shipToBox[s.trim()] || '---').join(', ');
             } else if (isIssue(item)) {
@@ -1671,30 +1858,34 @@ async function fetchStaffList() {
             } else {
                 item.boxInfo = '';            // Dư hàng: cột Box trống, dùng cột P (Box Dư)
             }
-            // Lưu ý: item.boxDu KHÔNG bị reset ở đây nữa - dùng để lưu giá trị PL cho Dư hàng/Sai hàng/Hư hỏng
+            // Lưu ý: item.boxDu KHÔNG bị reset ở đây - dùng để lưu giá trị PL cho Dư hàng/Sai hàng/Hư hỏng
         });
 
         // 3) Sắp xếp thành cụm: Good (theo box) → Issue (chung 1 box) → Dư (theo Box Dư)
         const rank = q => isGood(q) ? 0 : (isIssue(q) ? 1 : 2);
         const sec  = q => isGood(q)
-            ? String(Math.max(0, selectedBoxes.indexOf(q.boxInfo.split(',')[0].trim()))).padStart(3, '0')
+            ? String(Math.max(0, boxes.indexOf(q.boxInfo.split(',')[0].trim()))).padStart(3, '0')
             : (isExcess(q) ? q.boxDu : '');
-        queueList.sort((a, b) => (rank(a) - rank(b)) || sec(a).localeCompare(sec(b)));   // sort ổn định
+        items.sort((a, b) => (rank(a) - rank(b)) || sec(a).localeCompare(sec(b)));   // sort ổn định
 
-        const btn = document.getElementById('btnSave');
+        // 4) Toàn bộ dòng của lần Done này dùng chung mã Current Batch đang hiển thị
+        const batchCode = currentBatchCode;
+        items.forEach(q => { q.batchID = batchCode; });
+
+        const btn = document.getElementById('btnDone_' + group);
         btn.disabled = true;
-        document.getElementById('status').innerText = "Saving Data...";
+        document.getElementById('status').innerText = "Saving Data (" + group + ")...";
 
         try {
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(queueList)
+                body: JSON.stringify(items)
             });
 
             // Dư hàng không trừ tồn nên không đẩy vào exportData
-            queueList.filter(q => !isExcess(q)).forEach(data => {
+            items.filter(q => !isExcess(q)).forEach(data => {
                 exportData.push({ 
                     sku: data.sku.toUpperCase(), 
                     qty: data.customQty, 
@@ -1703,11 +1894,13 @@ async function fetchStaffList() {
                 });
             });
 
-            queueList = [];
-            selectedBoxes = [];
-            updateBoxListUI();
+            // Chỉ xóa các dòng của khung vừa Done; các khung khác giữ nguyên
+            queueList = queueList.filter(q => q.group !== group);
+            groupBoxes[group] = [];
+            updateBoxListUI(group);
             setStatus('Good'); // Reset status lại mặc định     
             
+            // Bất kỳ nút Done nào được bấm → Current Batch tự nhảy mã mới
             currentBatchCode = generateBatchCode();
             document.getElementById('batchDisplay').innerText = currentBatchCode;
 
@@ -1715,8 +1908,10 @@ async function fetchStaffList() {
             updateStatusTooltip();
             document.getElementById('status').innerText = "Saved Successfully";
             fetchData(); 
+            return true;
         } catch(e) {
             document.getElementById('status').innerText = "Save Error";
+            return false;
         } finally {
             btn.disabled = false;
         }
@@ -1758,6 +1953,7 @@ async function fetchStaffList() {
         const specificId = ++queueIdCounter;
         queueList.push({
             _id: specificId,
+            group: getQueueGroup(lastSku),
             staff: document.getElementById('staffInput').value.trim(),
             dateStr: fromDate,
             sku: lastSku,
@@ -1955,6 +2151,7 @@ function handleSkuEnter() {
         validateAndAdd();   // scan lại đúng SKU đang hiển thị => đẩy vào hàng chờ
         return;
     }
+    _flashOnNextTim = true;
     tim();                  // scan lần đầu => tra cứu
 }
 
@@ -2217,8 +2414,8 @@ function handleQtyEnter() {
             <div class="guide-item"><b>2. STAFF:</b> Nhập tên nhân viên trước.</div>
             <div class="guide-item"><b>3. SHIP ORDER:</b> Nhập mã Ship Order và Enter.</div>
             <div class="guide-item"><b>4. Input SKU:</b> Nhập mã để kiểm tra tồn kho.</div>
-            <div class="guide-item"><b>5. QUERY:</b> Nhập số lượng và Enter để đẩy vào Queue.</div>
-            <div class="guide-item"><b>6. DONE:</b> Nhấn Execute Saving để lưu.</div>
+            <div class="guide-item"><b>5. QUERY:</b> Nhập số lượng và Enter để đẩy vào Queue. SKU đã có location vào khung trên (xanh lá), chưa có location vào khung dưới.</div>
+            <div class="guide-item"><b>6. DONE:</b> Nhập Box ID ở góc phải trên khung Export Queue rồi nhấn Done ngay cạnh đó để lưu khung đó. Current Batch tự đổi mã sau mỗi lần Done.</div>
             <div class="guide-item"><b>7. SAI HÀNG:</b> Chọn Sai hàng rồi nhập SKU thực tế.</div>
             <div class="guide-item"><b>8. DƯ HÀNG:</b> Chọn Dư hàng, nhập Box Dư rồi nhập SKU và số lượng.</div>
             <div class="guide-item" style="border-top: 1px groove #fff; padding-top: 10px; margin-top: 15px;">
