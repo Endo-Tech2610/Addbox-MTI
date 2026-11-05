@@ -640,7 +640,7 @@
     <!-- KHUNG 1/3: Export Queue - SKU ĐÃ CÓ LOCATION (tô xanh lá) -->
     <div class="data-section" id="queuePanel_LOC">
         <div class="section-header">
-            <span>Export Queue - Has LOC</span>
+            <span id="queueTitle_LOC">Export Queue - Has LOC</span>
             <div class="header-tools">
                 <span id="queueShipCount_LOC" class="count-badge">0 Batches</span>
                 <span id="queueCount_LOC" class="count-badge">0 SKU</span>
@@ -1124,6 +1124,8 @@ async function fetchStaffList() {
     document.getElementById('batchDisplay').innerText = currentBatchCode; 
     fetchData();
 
+    applyPackingLayout();
+
     // Tự động refresh data mỗi 1 phút
     setInterval(fetchData, 60000);
 
@@ -1421,6 +1423,7 @@ async function fetchStaffList() {
     let _flashOnNextTim = false;
 
     function flashQueueFrame(group) {
+        if (isMergedMode()) return; // Pallet: chỉ 1 khung, không phân biệt location nên không chớp
         const cls = group === 'LOC' ? 'flash-loc' : (group === 'NOLOC' ? 'flash-noloc' : '');
         const el = document.getElementById('queuePanel_' + group);
         if (!cls || !el) return;
@@ -1725,6 +1728,29 @@ async function fetchStaffList() {
         focusSmooth(document.getElementById('skuInput'));
     }
 
+    // Pallet: gộp 2 khung Has LOC + No LOC thành 1 (không phân biệt location). Basket: tách 2 khung.
+    function isMergedMode() {
+        return document.getElementById('packingSelect').value === 'Pallet';
+    }
+
+    // Các nhóm dòng mà 1 khung đang hiển thị / lưu
+    function queueMembers(panel) {
+        if (isMergedMode()) {
+            if (panel === 'LOC') return ['LOC', 'NOLOC'];
+            if (panel === 'NOLOC') return [];
+        }
+        return [panel];
+    }
+
+    function applyPackingLayout() {
+        const merged = isMergedMode();
+        const noloc = document.getElementById('queuePanel_NOLOC');
+        if (noloc) noloc.style.display = merged ? 'none' : '';
+        const title = document.getElementById('queueTitle_LOC');
+        if (title) title.innerText = merged ? 'Export Queue' : 'Export Queue - Has LOC';
+        renderQueue();
+    }
+
     // Vẽ cả 3 khung Export Queue
     function renderQueue() {
         const idsToAnimate = lastAddedIds;
@@ -1741,7 +1767,7 @@ async function fetchStaffList() {
         // Giữ index gốc trong queueList để update/xóa chính xác, hiển thị dòng mới nhất lên trên cùng
         const entries = queueList
             .map((item, index) => ({ item, index }))
-            .filter(e => e.item.group === group)
+            .filter(e => queueMembers(group).includes(e.item.group))
             .reverse();
 
         if (entries.length === 0) {
@@ -1758,7 +1784,7 @@ async function fetchStaffList() {
 
         qBody.innerHTML = entries.map(({ item, index }) => {
             const cls = [];
-            if (group === 'LOC') cls.push('row-loc'); // SKU đã có location → tô xanh lá
+            if (group === 'LOC' && !isMergedMode()) cls.push('row-loc'); // SKU đã có location → tô xanh lá
             if (group === 'NOLOC') cls.push('row-noloc'); // SKU chưa có location → tô vàng nhạt
             if (idsToAnimate.includes(item._id)) cls.push('row-enter');
             return `
@@ -1826,7 +1852,7 @@ async function fetchStaffList() {
     // Done của từng khung: chỉ lưu các dòng thuộc khung đó, dùng Box ID của khung đó,
     // sau đó Current Batch tự nhảy sang mã mới.
     async function saveQueueGroup(group) {
-        const items = queueList.filter(q => q.group === group);
+        const items = queueList.filter(q => queueMembers(group).includes(q.group));
         if (items.length === 0) return false;
 
         const boxes = groupBoxes[group];
@@ -1895,7 +1921,8 @@ async function fetchStaffList() {
             });
 
             // Chỉ xóa các dòng của khung vừa Done; các khung khác giữ nguyên
-            queueList = queueList.filter(q => q.group !== group);
+            const savedMembers = queueMembers(group);
+            queueList = queueList.filter(q => !savedMembers.includes(q.group));
             groupBoxes[group] = [];
             updateBoxListUI(group);
             setStatus('Good'); // Reset status lại mặc định     
@@ -2007,6 +2034,7 @@ async function fetchStaffList() {
         packSelect.value = val;
         document.getElementById('btnBasket').classList.toggle('active', val === 'Basket');
         document.getElementById('btnPallet').classList.toggle('active', val === 'Pallet');
+        applyPackingLayout(); // Pallet: gộp 1 khung | Basket: tách 2 khung
     }
 
     function setStatus(val) {
