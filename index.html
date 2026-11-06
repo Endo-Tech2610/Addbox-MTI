@@ -2016,6 +2016,22 @@ async function fetchStaffList() {
     // nếu gửi lỗi thì khôi phục lại Queue + Box ID để bấm Done lại.
     const _savingCount = { LOC: 0, NOLOC: 0, XS: 0 };
 
+    // Kiểm tra sheet Export Data MTIS đã có dòng nào mang mã Batch này (cột K) chưa. Thử tối đa 4 lần, cách nhau 2.5 giây.
+    async function verifyBatchSaved(batchCode) {
+        const code = String(batchCode).trim().toUpperCase();
+        for (let i = 0; i < 4; i++) {
+            await new Promise(r => setTimeout(r, 2500));
+            try {
+                const r = await fetch(exportUrl + '&t=' + Date.now());
+                const t = await r.text();
+                const rows = JSON.parse(t.substring(47, t.length - 2)).table.rows;
+                if (rows.some(row => row.c && row.c[10] && row.c[10].v !== null && row.c[10].v !== undefined
+                        && row.c[10].v.toString().trim().toUpperCase() === code)) return true;
+            } catch (e) { /* mạng chập chờn: thử lại */ }
+        }
+        return false;
+    }
+
     async function saveQueueGroup(group) {
         // Box ID đang gõ dở trong ô nhập (chưa nhấn Enter) vẫn được tính, không phải nhấn thêm lần nữa
         addBox(group);
@@ -2104,12 +2120,25 @@ async function fetchStaffList() {
         _savingCount[group]++;
         const dropPending = () => { pendingExports = pendingExports.filter(x => !exportEntries.includes(x)); };
         try {
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: payload
-            });
+            // Gửi no-cors nên trình duyệt không đọc được phản hồi; có trường hợp Apps Script đã ghi xong
+            // nhưng fetch vẫn bị từ chối (chuyển hướng). Vì vậy khi fetch lỗi KHÔNG kết luận thất bại ngay:
+            // đối chiếu lại sheet theo mã Batch. Chỉ khi sheet chưa có dòng nào mới gửi lại (tối đa 2 lần) rồi mới khôi phục Queue.
+            let saved = false;
+            for (let attempt = 1; attempt <= 2 && !saved; attempt++) {
+                try {
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: payload
+                    });
+                    saved = true;
+                } catch (netErr) {
+                    statusEl.innerText = "Đang đối chiếu dữ liệu với sheet Export Data MTIS...";
+                    saved = await verifyBatchSaved(batchCode);
+                }
+            }
+            if (!saved) throw new Error('not saved');
             dropPending();
             statusEl.innerText = "Saved Successfully";
             fetchData();
