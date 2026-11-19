@@ -1374,16 +1374,20 @@ async function fetchStaffList() {
             })
             .filter(r => r.ship && r.box);
         
-        const ALLOWED_ZONES = ['A1', 'AT', 'A1T', 'B', 'BT', 'C','AV','NRP','IMIB','MI'];
-        onHandData = JSON.parse(tHand.substring(47, tHand.length - 2)).table.rows
-            .map(row => ({
-                skuId: row.c[0]?.v?.toString().trim() || '', 
-                name: row.c[1]?.v || '',
-                qty: row.c[2]?.v || 0, 
-                loc: row.c[3]?.v || '---',
-                zone: row.c[4]?.v?.toString().trim().toUpperCase() || ''
-            }))
-            .filter(item => ALLOWED_ZONES.includes(item.zone));
+const ALLOWED_ZONES = ['A1', 'AT', 'A1T', 'B', 'BT', 'C','AV','NRP','IMIB','MI'];
+onHandData = JSON.parse(tHand.substring(47, tHand.length - 2)).table.rows
+    .map(row => {
+        const c = row.c || [];
+        const cell = i => (c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : '';
+        return {
+            skuId: cell(0).toString().trim(),            // cột C
+            name:  cell(1),                              // cột D
+            qty:   cell(2) || 0,                         // cột H
+            loc:   cell(3).toString().trim() || '---',   // cột O
+            zone:  cell(4).toString().trim().toUpperCase() // cột R
+        };
+    })
+    .filter(item => item.skuId && ALLOWED_ZONES.includes(item.zone));
         upcData = JSON.parse(tUpc.substring(47, tUpc.length - 2)).table.rows.map(row => ({
             sku: row.c[0]?.v?.toString().trim() || '',
             upc3: row.c[1]?.v?.toString().trim() || '',
